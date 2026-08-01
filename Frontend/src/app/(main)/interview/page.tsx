@@ -20,9 +20,45 @@ import { MOCK_CHAT_MESSAGES } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 export default function InterviewPage() {
-  const [messages, setMessages] = useState(MOCK_CHAT_MESSAGES);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Fetch initial thread
+  useEffect(() => {
+    fetch("http://localhost:8000/api/orchestration/chats")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          const id = data[0].id;
+          setThreadId(id);
+          return fetch(`http://localhost:8000/api/orchestration/chats/${id}/messages`);
+        } else {
+          return fetch("http://localhost:8000/api/orchestration/chats", { 
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: "New Conversation" })
+          })
+            .then(res => res.json())
+            .then(newThread => {
+              setThreadId(newThread.id);
+              return { json: () => Promise.resolve([]) };
+            });
+        }
+      })
+      .then(res => res.json())
+      .then(msgs => {
+         if (Array.isArray(msgs)) {
+           setMessages(msgs.map((m: any) => ({
+             id: m.id,
+             sender: m.role,
+             text: m.content
+           })));
+         }
+      })
+      .catch(console.error);
+  }, []);
 
   // Auto-scroll to bottom on new message
   useEffect(() => {
@@ -32,30 +68,37 @@ export default function InterviewPage() {
   }, [messages]);
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !threadId) return;
 
+    const userText = input;
     const userMsg = {
       id: `u-${Date.now()}`,
       sender: "USER",
-      text: input,
+      text: userText,
       options: undefined
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev, 
-        {
-          id: `ai-${Date.now()}`,
-          sender: "AI",
-          text: "I can certainly help you with that! Let's get started. Would you like a brief overview or should we dive straight into an exercise?",
-          options: ["Give me an overview", "Let's do an exercise"]
-        }
-      ]);
-    }, 1000);
+    fetch(`http://localhost:8000/api/orchestration/chats/${threadId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userText })
+    })
+      .then(res => res.json())
+      .then(aiMsg => {
+        setMessages((prev) => [
+          ...prev, 
+          {
+            id: aiMsg.id,
+            sender: aiMsg.role,
+            text: aiMsg.content,
+            options: undefined
+          }
+        ]);
+      })
+      .catch(console.error);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

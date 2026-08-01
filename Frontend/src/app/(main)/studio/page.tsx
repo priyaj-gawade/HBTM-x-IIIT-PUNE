@@ -35,6 +35,24 @@ export default function StudioPage() {
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"ai" | "roadmap">("roadmap");
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState("lab");
+  const [roadmap, setRoadmap] = useState<any[]>(MOCK_PYTHON_ROADMAP);
+
+  React.useEffect(() => {
+    fetch("http://localhost:8000/api/v1/mindmap/00000000-0000-0000-0000-000000000000")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const mapped = data.map((node: any) => ({
+             id: node.id,
+             title: node.title,
+             description: node.description || "",
+             sections: []
+          }));
+          setRoadmap(mapped);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const handleVerticalDrag = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -213,16 +231,15 @@ export default function StudioPage() {
             </button>
           </div>
 
-          {/* Sidebar Content */}
           <div className="flex-1 overflow-y-auto">
-            {sidebarTab === "ai" ? <SidebarAIMock /> : <SidebarRoadmapMock />}
+            {sidebarTab === "ai" ? <SidebarAIMock /> : <SidebarRoadmapMock roadmap={roadmap} />}
           </div>
         </div>
       </div>
           </>
       ) : activeWorkspaceTab === "roadmap" ? (
         <div className="flex-1 overflow-hidden flex flex-col">
-          <RoadmapExplorer roadmap={MOCK_PYTHON_ROADMAP} />
+          <RoadmapExplorer roadmap={roadmap} />
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -333,10 +350,10 @@ function SidebarAIMock() {
   );
 }
 
-function SidebarRoadmapMock() {
+function SidebarRoadmapMock({ roadmap }: { roadmap: any[] }) {
   return (
     <div className="flex flex-col h-full overflow-hidden w-full">
-      <RoadmapExplorer roadmap={MOCK_PYTHON_ROADMAP} />
+      <RoadmapExplorer roadmap={roadmap} />
     </div>
   );
 }

@@ -27,6 +27,24 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/api/workspaces")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.id) {
+          setWorkspaces([{
+            id: data.id,
+            title: "My Learning Plan",
+            difficulty: "Adaptive",
+            lastAccessed: "Just now",
+            progress: 10
+          }]);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   return (
     <div className="flex z-50">
@@ -101,7 +119,7 @@ export function Sidebar() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {MOCK_WORKSPACES.map((workspace) => (
+            {workspaces.map((workspace) => (
               <div 
                 key={workspace.id}
                 className="group flex flex-col p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 cursor-pointer transition-colors"

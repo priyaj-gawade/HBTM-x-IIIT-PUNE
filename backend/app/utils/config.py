@@ -8,8 +8,6 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/atlas"
 
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379"
 
     # JWT
     JWT_SECRET_KEY: str = "your-super-secret-key-change-this"

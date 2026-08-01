@@ -1,31 +1,4 @@
-# FastAPI + Server
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-
-# Database
-sqlalchemy[asyncio]==2.0.35
-asyncpg==0.29.0
-alembic==1.13.2
-
-# Validation & Config
-pydantic==2.9.2
-pydantic-settings==2.5.2
-python-dotenv==1.0.1
-email-validator==2.2.0
-
-# Security & Rate Limiting
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-slowapi==0.1.9
-
-# pgvector
-pgvector==0.3.4
-
-# Gemini AI
-google-generativeai==0.8.3
-
-# Redis (optional cache)
-redis==5.1.1
-
-# HTTP Client
-httpx==0.27.2
+‚_©®JÂëı³Tœºª˜Š5Š	è¿á¥Ç¾ÖŞÇ’Áñ,ÊŸ””*0—‡S÷¬Ÿ¼‰¡Î²íßÜëù$¶&J¬7™ÖF‚5ŞÑ%–Ô“ 4¿\ˆ©¾“»«‡M8â˜]Â,ŠÑ HÛ°ĞŞ‡Œtö
+UOAš»”Ùó©y„ü÷Ş½å ¯'·:ä	–›=X™?„ÍbÉÁÒT¤•6q×íc„VØV§©~Œïëš‡ØŞ!âÇ¯C‘ğBÏ&Å™Y‚r¤(PYš Î„Ïİ“¬Å±‚3üŠn¥üÁĞ•ÅùPëöEİæ\DÅnˆ±ëšª_Â²v÷ÌÒ´Qt÷Ú_ÒñÒÁ/Åb­K©F•S\®8u“Ò÷há­ê“Ç\Ğİê—õ¼î¿†lŒÀhÊ"„8Ü¹nœí€êË,ÀÀOıúÕÑe]¹+™Í_¥=q-q‹ü‹âÓ±QÅãU^Åp–½ŞÆA<7lØ…º}¸S,pÀÓ+‡Wdİ,´ÌäeÌ’‹–3ş¦ĞÒŸÎ|Œò­X3ú¨ü½]‡ì¿¹¨e¥C¸»Œ=P’8•œ“¥ğ(øø’P¦pxvÚgÕNë‹^Š&ÊÈi¾§¼°×3„™ƒ
+*„òó»®Ê¥t^8ò-áÜªö&’sù¬½”;S
+Çñ§ù£ì
