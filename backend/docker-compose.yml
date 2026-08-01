@@ -1,0 +1,39 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: atlas_db
+    environment:
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas_user
+      POSTGRES_PASSWORD: atlas_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: atlas_redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: .
+    container_name: atlas_backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://atlas_user:atlas_password@db:5432/atlas
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET_KEY: change-this-to-a-secure-secret-in-production
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_MINUTES: 1440
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      APP_NAME: Atlas AI
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  pgdata:
