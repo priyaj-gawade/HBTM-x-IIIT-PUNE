@@ -1,6 +1,8 @@
 """Search API routes for learning resources and educational videos."""
 
 import asyncio
+import html
+import json
 import logging
 import os
 import re
@@ -9,79 +11,22 @@ import urllib.request
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
+from app.utils.config import get_settings
 
 router = APIRouter(prefix="/api/search", tags=["Search"])
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
-# Curated fallback educational videos for standard programming & computer science concepts
-FALLBACK_TOPIC_VIDEOS = {
-    "python": {
-        "id": "pnWINBJ3-yA",
-        "title": "Python Object-Oriented Programming (OOP) - For Beginners",
-        "author": "Tech With Tim",
-    },
-    "linked list": {
-        "id": "F_H_5m_p57o",
-        "title": "Linked Lists in 100 Seconds / Complete Tutorial",
-        "author": "freeCodeCamp.org",
-    },
-    "array": {
-        "id": "70A_K3s8kZ8",
-        "title": "Arrays & Dynamic Arrays - Data Structures & Algorithms",
-        "author": "NeetCode",
-    },
-    "tree": {
-        "id": "fAAZixBzIAI",
-        "title": "Binary Tree & Binary Search Tree Tutorial",
-        "author": "freeCodeCamp.org",
-    },
-    "graph": {
-        "id": "tWVWeAqZ0WU",
-        "title": "Graph Data Structure & Algorithms",
-        "author": "freeCodeCamp.org",
-    },
-    "recursion": {
-        "id": "IJDJ0kBx2LM",
-        "title": "Recursion in Programming - Full Course",
-        "author": "freeCodeCamp.org",
-    },
-    "dynamic programming": {
-        "id": "oBt53YbR9Kk",
-        "title": "Dynamic Programming - Learn to Solve Algorithmic Problems",
-        "author": "freeCodeCamp.org",
-    },
-    "javascript": {
-        "id": "W6NZfCO5SIk",
-        "title": "JavaScript Tutorial for Beginners: Learn JavaScript in 1 Hour",
-        "author": "Programming with Mosh",
-    },
-    "react": {
-        "id": "bMknfKXIFA8",
-        "title": "React Course - Beginner's Tutorial for React JavaScript",
-        "author": "freeCodeCamp.org",
-    },
-    "sql": {
-        "id": "HXV3zeRR3h4",
-        "title": "SQL Tutorial - Full Database Course for Beginners",
-        "author": "freeCodeCamp.org",
-    },
-    "machine learning": {
-        "id": "i_LwzRVP7bg",
-        "title": "Machine Learning for Everybody - Full Course",
-        "author": "freeCodeCamp.org",
-    },
-    "neural network": {
-        "id": "aircAruvnKk",
-        "title": "But what is a neural network? | Chapter 1, Deep learning",
-        "author": "3Blue1Brown",
-    },
-}
+DEFAULT_YOUTUBE_API_KEY = "AIzaSyBPZN7oGJMF8dUVK6VorXIFGrsMLJr-n6k"
 
 
 def _scrape_youtube_search(query: str) -> List[Dict[str, Any]]:
-    """Scrape public YouTube search results to extract top video IDs without requiring an API key."""
+    """Scrape live YouTube search results dynamically as a secondary fallback."""
     try:
-        encoded_query = urllib.parse.quote_plus(f"{query} tutorial educational")
+        clean_query = re.sub(r"[^\w\s-]", "", query).strip()
+        if not clean_query:
+            return []
+        encoded_query = urllib.parse.quote_plus(f"{clean_query} tutorial educational")
         url = f"https://www.youtube.com/results?search_query={encoded_query}"
         req = urllib.request.Request(
             url,
@@ -90,30 +35,34 @@ def _scrape_youtube_search(query: str) -> List[Dict[str, Any]]:
                 "Accept-Language": "en-US,en;q=0.9",
             },
         )
-        with urllib.request.urlopen(req, timeout=4) as response:
-            html = response.read().decode("utf-8", errors="ignore")
+        with urllib.request.urlopen(req, timeout=5) as response:
+            html_text = response.read().decode("utf-8", errors="ignore")
 
         # Extract video IDs from videoRenderer objects
-        video_ids = list(dict.fromkeys(re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)))
+        video_ids = list(dict.fromkeys(re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', html_text)))
         
         results = []
         for vid in video_ids[:3]:
             # Extract video title if possible
-            title_match = re.search(rf'"videoId":"{vid}".*?"title":\{{"runs":\[\{{"text":"([^"]+)"', html)
-            title = title_match.group(1) if title_match else query.title()
+            title_match = re.search(rf'"videoId":"{vid}".*?"title":\{{"runs":\[\{{"text":"([^"]+)"', html_text)
+            title = html.unescape(title_match.group(1)) if title_match else f"{clean_query.title()} Tutorial"
             
+            # Extract channel name if available
+            channel_match = re.search(rf'"videoId":"{vid}".*?"ownerText":\{{"runs":\[\{{"text":"([^"]+)"', html_text)
+            channel = html.unescape(channel_match.group(1)) if channel_match else "YouTube"
+
             results.append({
                 "id": vid,
                 "title": title,
                 "thumbnailUrl": f"https://img.youtube.com/vi/{vid}/hqdefault.jpg",
                 "videoUrl": f"https://www.youtube.com/watch?v={vid}",
-                "author": "YouTube Education",
+                "author": channel,
                 "duration": "10:00",
                 "type": "video",
             })
         return results
     except Exception as e:
-        logger.debug(f"YouTube public search scrape failed: {e}")
+        logger.warning(f"YouTube public search scrape fallback failed: {e}")
         return []
 
 
@@ -124,13 +73,17 @@ async def search_videos(
     workspaceId: Optional[str] = Query("", description="Optional workspace ID"),
 ):
     """
-    Search educational YouTube videos for a specific roadmap activity or topic.
-    Returns structured video metadata with videoId, title, and preview thumbnails.
+    Search educational YouTube videos using the YouTube Data API v3.
+    Searches subtopics as titles with specific duration (medium) and type (video), exactly like Oreo.
     """
     query = f"{topic} {context}".strip()
-    youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
+    youtube_api_key = (
+        settings.YOUTUBE_API_KEY 
+        or os.getenv("YOUTUBE_API_KEY") 
+        or DEFAULT_YOUTUBE_API_KEY
+    )
 
-    # 1. Try Official YouTube Data API if key is provided
+    # 1. Primary: YouTube Data API v3 (Oreo Search Pattern)
     if youtube_api_key and youtube_api_key not in ("NONE", "mock-key", ""):
         try:
             encoded_query = urllib.parse.quote(query)
@@ -139,8 +92,7 @@ async def search_videos(
                 f"part=snippet&maxResults=3&q={encoded_query}&type=video&videoDuration=medium&key={youtube_api_key}"
             )
             req = urllib.request.Request(api_url)
-            with urllib.request.urlopen(req, timeout=4) as resp:
-                import json
+            with urllib.request.urlopen(req, timeout=6) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 items = data.get("items", [])
                 if items:
@@ -149,49 +101,36 @@ async def search_videos(
                         vid = item.get("id", {}).get("videoId")
                         snippet = item.get("snippet", {})
                         if vid:
+                            raw_title = snippet.get("title") or topic
+                            title = html.unescape(raw_title)
+                            channel_title = html.unescape(snippet.get("channelTitle") or "YouTube")
+                            thumbnails = snippet.get("thumbnails", {})
+                            thumb_url = (
+                                thumbnails.get("high", {}).get("url")
+                                or thumbnails.get("default", {}).get("url")
+                                or f"https://img.youtube.com/vi/{vid}/hqdefault.jpg"
+                            )
                             results.append({
                                 "id": vid,
-                                "title": snippet.get("title", topic),
-                                "thumbnailUrl": f"https://img.youtube.com/vi/{vid}/hqdefault.jpg",
+                                "title": title,
+                                "thumbnailUrl": thumb_url,
                                 "videoUrl": f"https://www.youtube.com/watch?v={vid}",
-                                "author": snippet.get("channelTitle", "YouTube"),
+                                "author": channel_title,
                                 "duration": "10:00",
                                 "type": "video",
                             })
                     if results:
                         return results
         except Exception as e:
-            logger.warning(f"YouTube API query failed: {e}")
+            logger.warning(f"YouTube Data API search failed, attempting fallback: {e}")
 
-    # 2. Try YouTube public search scraping asynchronously
+    # 2. Secondary Fallback: Dynamic live scraper
     try:
         scraped_results = await asyncio.to_thread(_scrape_youtube_search, query)
         if scraped_results:
             return scraped_results
     except Exception as e:
-        logger.debug(f"Async scrape fallback failed: {e}")
+        logger.warning(f"Async scrape fallback failed: {e}")
 
-    # 3. Match against curated fallback catalog
-    query_lower = query.lower()
-    for key, val in FALLBACK_TOPIC_VIDEOS.items():
-        if key in query_lower:
-            return [{
-                "id": val["id"],
-                "title": val["title"],
-                "thumbnailUrl": f"https://img.youtube.com/vi/{val['id']}/hqdefault.jpg",
-                "videoUrl": f"https://www.youtube.com/watch?v={val['id']}",
-                "author": val["author"],
-                "duration": "10:00",
-                "type": "video",
-            }]
-
-    # 4. Default fallback video
-    return [{
-        "id": "pnWINBJ3-yA",
-        "title": f"{topic.title()} - Tutorial",
-        "thumbnailUrl": "https://img.youtube.com/vi/pnWINBJ3-yA/hqdefault.jpg",
-        "videoUrl": "https://www.youtube.com/watch?v=pnWINBJ3-yA",
-        "author": "Tech With Tim",
-        "duration": "10:00",
-        "type": "video",
-    }]
+    # 3. Clean empty fallback if nothing found
+    return []

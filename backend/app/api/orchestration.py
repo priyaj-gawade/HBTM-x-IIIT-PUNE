@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any, List, Optional
-import google.generativeai as genai
 import json
 
 from app.utils.config import settings
@@ -19,27 +18,6 @@ from app.services.transcript_service import transcript_service
 from app.utils.llm_manager import llm_manager
 
 router = APIRouter(prefix="/api/orchestration", tags=["Orchestration"])
-
-MOCK_FLASHCARDS = [
-  { "id": "fc-1", "front": "What is Heap Memory?", "back": "A region of memory used for dynamic allocation, where variables are allocated and freed manually or via garbage collection." },
-  { "id": "fc-2", "front": "What is a Stack?", "back": "A linear data structure that follows the Last In, First Out (LIFO) principle." },
-  { "id": "fc-3", "front": "Garbage Collection", "back": "An automatic memory management feature that reclaims memory occupied by objects that are no longer in use." },
-]
-
-MOCK_MICRO_QUIZ = [
-  {
-    "id": 'q1',
-    "topicTag": 'Python Basics',
-    "questionText": 'What is the correct syntax to output "Hello World" in Python?',
-    "type": 'mcq',
-    "options": [
-      { "id": 'opt1', "text": 'echo "Hello World"', "isCorrect": False },
-      { "id": 'opt2', "text": 'print("Hello World")', "isCorrect": True },
-      { "id": 'opt3', "text": 'console.log("Hello World")', "isCorrect": False },
-      { "id": 'opt4', "text": 'printf("Hello World")', "isCorrect": False },
-    ]
-  }
-]
 
 @router.post("/flashcards", response_model=FlashcardGenerationResponse)
 async def generate_flashcards(request: FlashcardGenerationRequest):
@@ -62,9 +40,7 @@ async def generate_flashcards(request: FlashcardGenerationRequest):
         response = await llm_manager.generate_content_async(
             prompt=prompt,
             model_name="gemini-3.1-flash-lite",
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-            )
+            generation_config={"response_mime_type": "application/json"}
         )
         return json.loads(response.text)
     except Exception as e:
@@ -73,7 +49,7 @@ async def generate_flashcards(request: FlashcardGenerationRequest):
 @router.post("/assessments/generate", response_model=QuizGenerationResponse)
 async def generate_quiz(request: QuizGenerationRequest):
     if not llm_manager.keys:
-        return {"questions": MOCK_MICRO_QUIZ}
+        raise HTTPException(status_code=500, detail="Gemini API Key missing")
 
     prompt = f"""
     Create a quiz with {request.count} questions about "{request.topic}" at a {request.difficulty} difficulty level.
@@ -98,13 +74,11 @@ async def generate_quiz(request: QuizGenerationRequest):
         response = await llm_manager.generate_content_async(
             prompt=prompt,
             model_name="gemini-3.1-flash-lite",
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-            )
+            generation_config={"response_mime_type": "application/json"}
         )
         return json.loads(response.text)
-    except Exception:
-        return {"questions": MOCK_MICRO_QUIZ}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/interview", response_model=ProfilerOutputSchema)
 async def trigger_interview(request: InterviewRequest):
@@ -118,9 +92,7 @@ async def trigger_interview(request: InterviewRequest):
             prompt=request.message,
             model_name="gemini-3.1-flash-lite",
             system_instruction=prompt,
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-            )
+            generation_config={"response_mime_type": "application/json"}
         )
         data = json.loads(response.text)
         reply = (
@@ -150,32 +122,61 @@ async def complete_interview(persona: InferredPersona):
     if not llm_manager.keys:
         raise HTTPException(status_code=500, detail="Gemini API Key missing")
         
-    context = f"Domain: {persona.domain}, Subject: {persona.subject}, IQ Logic: {persona.iq_logic}, EQ Resilience: {persona.eq_resilience}"
+    context = (
+        f"Domain: {persona.domain or 'General'}, "
+        f"Subject: {persona.subject or 'Core Concepts'}, "
+        f"IQ/Logic: {persona.iq_logic or 'High'}, "
+        f"EQ/Resilience: {persona.eq_resilience or 'Medium'}"
+    )
     
     try:
         response = await llm_manager.generate_content_async(
-            prompt=f"Generate a persona profile for a learner described as follows: {context}",
+            prompt=f"Generate a customized persona profile for a learner described as follows: {context}",
             model_name="gemini-3.1-flash-lite",
             system_instruction=PERSONA_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-            )
+            generation_config={"response_mime_type": "application/json"},
         )
         data = json.loads(response.text)
+
+        # Normalize blueprint nodes cleanly whether returned as dicts or strings
+        raw_nodes = data.get("blueprintNodes") or []
+        normalized_nodes = []
+        for idx, node in enumerate(raw_nodes):
+            if isinstance(node, str):
+                normalized_nodes.append({
+                    "id": f"node-{idx+1}",
+                    "dayRange": f"Phase {idx+1}",
+                    "title": node,
+                    "description": f"Targeted milestone for {node}",
+                    "topics": [node]
+                })
+            elif isinstance(node, dict):
+                normalized_nodes.append({
+                    "id": node.get("id") or f"node-{idx+1}",
+                    "dayRange": node.get("dayRange") or f"Phase {idx+1}",
+                    "title": node.get("title") or node.get("name") or f"Phase {idx+1}",
+                    "description": node.get("description") or node.get("summary") or "",
+                    "topics": node.get("topics") or []
+                })
+
+        # Ensure default metrics structure if any keys missing
+        metrics = data.get("metrics") or {}
+        default_metrics = {
+            "logic": float(metrics.get("logic", 0.85)),
+            "practice": float(metrics.get("practice", 0.80)),
+            "retention": float(metrics.get("retention", 0.75)),
+            "pacing": float(metrics.get("pacing", 0.70)),
+            "visualization": float(metrics.get("visualization", 0.75)),
+        }
+
         return {
             "renderMode": data.get("renderMode") or "default",
-            "title": data.get("title") or "The Dedicated Learner",
-            "subtitle": data.get("subtitle") or f"Mastering {persona.subject or 'Core Concepts'}",
-            "summary": data.get("summary") or "A systematic approach to hands-on learning and concept mastery.",
-            "traits": data.get("traits") or ["Analytical", "Methodical", "Resilient"],
-            "metrics": data.get("metrics") or {
-                "visualization": 0.8,
-                "theory": 0.7,
-                "practice": 0.9,
-                "pace": 0.6,
-                "retention": 0.85
-            },
-            "blueprintNodes": data.get("blueprintNodes") or ["Foundations", "Core Practice", "Mastery Project"]
+            "title": data.get("title") or "The Adaptive Learner",
+            "subtitle": data.get("subtitle") or f"Mastery of {persona.subject or 'Core Concepts'}",
+            "summary": data.get("summary") or f"Targeted learning path focusing on {persona.subject or 'core concepts'}.",
+            "traits": data.get("traits") or ["Analytical", "Motivated"],
+            "metrics": default_metrics,
+            "blueprintNodes": normalized_nodes
         }
     except Exception as e:
         import traceback

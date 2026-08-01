@@ -20,15 +20,18 @@ import {
 
 import { cn } from "@/lib/utils";
 import { ApiClient } from "@/lib/api-client";
+import { useWorkspace } from "@/lib/workspace-context";
 
 export default function InterviewPage() {
   const router = useRouter();
+  const { createWorkspace } = useWorkspace();
   const [messages, setMessages] = useState<{id: string, sender: string, text: string, options?: string[]}[]>([]);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAskingPlan, setIsAskingPlan] = useState(false);
   const [inferredPersona, setInferredPersona] = useState<any>(null);
+  const [confidenceScore, setConfidenceScore] = useState<number>(0);
   const initRef = useRef(false);
 
   // Initialize conversation
@@ -38,8 +41,6 @@ export default function InterviewPage() {
       handleSend("INIT", true);
     }
   }, []);
-
-
 
   // Auto-scroll to bottom on new message
   useEffect(() => {
@@ -65,7 +66,7 @@ export default function InterviewPage() {
     setIsLoading(true);
 
     if (isAskingPlan && !isInit) {
-      const affirmativeWords = ["yes", "y", "sure", "ok", "yeah", "yep", "proceed", "create", "plan"];
+      const affirmativeWords = ["yes", "y", "sure", "ok", "yeah", "yep", "proceed", "create", "plan", "ready"];
       const isAffirmative = affirmativeWords.some(w => userInput.toLowerCase().includes(w));
 
       if (isAffirmative && inferredPersona) {
@@ -77,19 +78,24 @@ export default function InterviewPage() {
             localStorage.setItem('atlas_persona', JSON.stringify(personaRes));
             localStorage.setItem('atlas_active_context', activeTopic);
           }
+
           try {
-            const wsRes = await ApiClient.post('/workspaces', {
-              title: personaRes.title || personaRes.subtitle || "My Learning Path",
-              data: {
-                ...personaRes,
-                activeLearningContext: activeTopic,
-                subject: inferredPersona.subject || personaRes.subtitle,
-                domain: inferredPersona.domain || personaRes.domain
-              }
+            const courseSubject = inferredPersona.subject || personaRes.subtitle || "My Learning Path";
+            await createWorkspace({
+              ...personaRes,
+              title: courseSubject,
+              personaTitle: personaRes.title,
+              subject: courseSubject,
+              difficulty: inferredPersona.difficulty || "Intermediate",
+              activeLearningContext: activeTopic,
+              progress: 0,
+              progressPercent: 0.0,
+              subtitle: personaRes.subtitle,
+              summary: personaRes.summary,
+              traits: personaRes.traits,
+              metrics: personaRes.metrics,
+              blueprintNodes: personaRes.blueprintNodes,
             });
-            if (wsRes && wsRes.id && typeof window !== "undefined") {
-              localStorage.setItem('atlas_active_workspace_id', wsRes.id);
-            }
           } catch (wsErr) {
             console.warn("Workspace save non-critical error:", wsErr);
           }
@@ -132,19 +138,30 @@ export default function InterviewPage() {
         }
       ]);
 
-      const isComplete = (res.internalState?.confidenceScore ?? res.internal_state?.confidenceScore ?? 0) >= 80 || (res.options && res.options.some((o: string) => o.endsWith('➔')));
+      const conf = res.internalState?.confidenceScore ?? res.internal_state?.confidenceScore ?? res.internalState?.confidence_score ?? 0;
+      if (conf > 0) {
+        setConfidenceScore(conf);
+      }
+
       const statePersona = res.internalState?.currentInferredPersona ?? res.internal_state?.currentInferredPersona ?? res.internalState?.current_inferred_persona;
+      if (statePersona && typeof statePersona === "object") {
+        setInferredPersona((prev: any) => ({
+          ...(prev || {}),
+          ...statePersona
+        }));
+      }
+
+      const isComplete = conf >= 80 || (res.options && res.options.some((o: string) => o.endsWith('➔')));
       
-      if (isComplete && statePersona && !isAskingPlan) {
-        setInferredPersona(statePersona);
+      if (isComplete && !isAskingPlan) {
         setIsAskingPlan(true);
         setMessages((prev) => [
           ...prev, 
           {
             id: `ai-plan-${Date.now()}`,
             sender: "AI",
-            text: "I have enough information! Do you want to create a learning plan now?",
-            options: ["Yes, proceed", "No, let's keep chatting"]
+            text: "I have gathered enough insight to craft your personalized blueprint! Ready to generate your workspace?",
+            options: ["Yes, proceed ➔", "Let's refine more"]
           }
         ]);
       }
@@ -177,7 +194,25 @@ export default function InterviewPage() {
     <div className="flex flex-col h-[calc(100vh-64px)] md:h-screen w-full relative">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border/50 bg-activity-bar">
-        <h1 className="font-display font-bold text-foreground">Atlas Tutor</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="font-display font-bold text-foreground">Atlas Tutor</h1>
+          {inferredPersona?.subject && (
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
+              Subject: {inferredPersona.subject}
+            </span>
+          )}
+        </div>
+        {confidenceScore > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground font-sans">Profiling: {confidenceScore}%</span>
+            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all duration-300 ease-out" 
+                style={{ width: `${Math.min(confidenceScore, 100)}%` }} 
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Chat Thread */}

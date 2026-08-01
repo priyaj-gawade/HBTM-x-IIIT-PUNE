@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any, List
-import google.generativeai as genai
 import json
 
 from app.utils.config import settings
@@ -53,9 +52,7 @@ async def generate_roadmap(request: RoadmapGenerationRequest):
             prompt=prompt,
             model_name="gemini-3.1-flash-lite",
             system_instruction=ROADMAP_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-            )
+            generation_config={"response_mime_type": "application/json"}
         )
         data = json.loads(response.text)
         

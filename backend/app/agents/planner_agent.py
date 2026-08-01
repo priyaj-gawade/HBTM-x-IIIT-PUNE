@@ -4,10 +4,9 @@ import json
 import logging
 from typing import Any, Dict
 
-import google.generativeai as genai
-
 from app.prompts.planner_prompts import PLANNER_SYSTEM_PROMPT, PLANNER_USER_PROMPT
 from app.utils.growth_score import calculate_growth_score
+from app.utils.llm_manager import llm_manager
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +22,11 @@ class PlannerAgent:
     """
 
     def __init__(self):
-        self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=PLANNER_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=0.7,
-                response_mime_type="application/json",
-            ),
-        )
-        self._cache = {}
+        self.model_name = "gemini-3.1-flash-lite"
+        self.generation_config = {
+            "temperature": 0.7,
+            "response_mime_type": "application/json",
+        }
 
     async def generate_daily_plan(
         self,
@@ -46,10 +41,37 @@ class PlannerAgent:
         memory_context: str = "",
     ) -> Dict[str, Any]:
         """Generate a personalized daily growth plan."""
-        # 👱‍♀️ Ponytail mode: Why hit Gemini for a dashboard? 
-        # A dashboard should be fast, deterministic, and pull straight from the DB.
-        # We bypass the LLM entirely and return the calculated stats and static plan.
-        return self._fallback_plan(goal, streak)
+        try:
+            prompt = PLANNER_USER_PROMPT.format(
+                goal=goal,
+                learning_style=learning_style,
+                daily_time=daily_time,
+                current_level=current_level,
+                growth_blueprint=growth_blueprint or "Not yet generated",
+                streak=streak,
+                last_mood=last_mood,
+                last_focus=last_focus,
+                memory_context=f"Relevant memories:\n{memory_context}" if memory_context else "",
+            )
+
+            response = await llm_manager.generate_content_async(
+                prompt=prompt,
+                model_name=self.model_name,
+                system_instruction=PLANNER_SYSTEM_PROMPT,
+                generation_config=self.generation_config,
+            )
+            plan = json.loads(response.text)
+            plan["growth_score"] = calculate_growth_score(streak, 0)
+
+            logger.info("Planner Agent generated daily plan successfully")
+            return plan
+
+        except json.JSONDecodeError:
+            logger.error("Planner Agent: Failed to parse JSON response")
+            return self._fallback_plan(goal, streak)
+        except Exception as e:
+            logger.error(f"Planner Agent error: {e}")
+            return self._fallback_plan(goal, streak)
 
     def _fallback_plan(self, goal: str, streak: int) -> Dict[str, Any]:
         """Return a sensible fallback plan if AI generation fails."""

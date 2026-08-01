@@ -7,11 +7,12 @@ Endpoints:
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from typing import Optional
 from app.db.database import get_db
 from app.models.user import User
 from app.schemas.progress import ProgressResponse
 from app.services.progress_service import progress_service
-from app.utils.security import get_current_user
+from app.utils.security import get_current_user_optional
 
 router = APIRouter(prefix="/api/progress", tags=["Progress"])
 
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/progress", tags=["Progress"])
 @router.get("", response_model=ProgressResponse)
 async def get_progress(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Get user progress metrics.

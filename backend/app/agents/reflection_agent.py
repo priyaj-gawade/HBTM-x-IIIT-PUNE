@@ -4,8 +4,6 @@ import json
 import logging
 from typing import Any, Dict
 
-import google.generativeai as genai
-
 from app.prompts.reflection_prompts import REFLECTION_SYSTEM_PROMPT, REFLECTION_USER_PROMPT
 from app.utils.llm_manager import llm_manager
 
@@ -23,7 +21,11 @@ class ReflectionAgent:
     """
 
     def __init__(self):
-        pass
+        self.model_name = "gemini-3.1-flash-lite"
+        self.generation_config = {
+            "temperature": 0.7,
+            "response_mime_type": "application/json",
+        }
 
     async def process_reflection(
         self,
@@ -50,12 +52,9 @@ class ReflectionAgent:
             # Async non-blocking call via rotational LLM manager
             response = await llm_manager.generate_content_async(
                 prompt=prompt,
+                model_name=self.model_name,
                 system_instruction=REFLECTION_SYSTEM_PROMPT,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.7,
-                    response_mime_type="application/json",
-                ),
-                request_options={"timeout": 30},
+                generation_config=self.generation_config,
             )
             result = json.loads(response.text)
 

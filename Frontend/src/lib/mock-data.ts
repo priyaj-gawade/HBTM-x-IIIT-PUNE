@@ -1,29 +1,4 @@
-export const MOCK_WORKSPACES = [
-  {
-    id: "ws-1",
-    title: "Data Science Fundamentals",
-    description: "Learn Python, Pandas, and Data Visualization basics.",
-    progress: 35,
-    difficulty: "Beginner",
-    lastAccessed: "2 hours ago",
-  },
-  {
-    id: "ws-2",
-    title: "Full-Stack Web Development",
-    description: "Next.js, React, and FastAPI integration.",
-    progress: 72,
-    difficulty: "Intermediate",
-    lastAccessed: "1 day ago",
-  },
-  {
-    id: "ws-3",
-    title: "Machine Learning Algorithms",
-    description: "Deep dive into regression, classification, and neural networks.",
-    progress: 15,
-    difficulty: "Advanced",
-    lastAccessed: "3 days ago",
-  },
-];
+export const MOCK_WORKSPACES: any[] = [];
 
 export const MOCK_CHAT_MESSAGES = [
   {

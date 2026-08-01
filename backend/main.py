@@ -14,7 +14,6 @@ Tech Stack:
 import logging
 from contextlib import asynccontextmanager
 
-import google.generativeai as genai
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

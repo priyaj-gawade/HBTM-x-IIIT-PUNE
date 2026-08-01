@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 interface ContinueLearningData {
   workspaceName: string;
@@ -18,6 +19,8 @@ export function ContinueLearningCard({ data }: { data?: ContinueLearningData }) 
     estimatedTime: "25m",
     progressPercent: 0.35,
   };
+
+  const pct = Math.round(fallbackData.progressPercent <= 1 ? fallbackData.progressPercent * 100 : fallbackData.progressPercent);
 
   return (
     <div className="bg-card rounded-2xl p-8 flex flex-col h-full border-none">
@@ -42,14 +45,14 @@ export function ContinueLearningCard({ data }: { data?: ContinueLearningData }) 
       {/* Progress */}
       <div className="flex justify-between items-center mb-2">
         <span className="font-sans text-[13px] text-muted-foreground">Overall Progress</span>
-        <span className="font-sans text-[13px] text-muted-foreground">
-          {Math.floor(fallbackData.progressPercent * 100)}%
+        <span className="font-sans text-[13px] font-bold text-cyan-400">
+          {pct}%
         </span>
       </div>
-      <div className="w-full h-1 bg-secondary rounded-[2px] overflow-hidden mb-8">
+      <div className="w-full h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden mb-8">
         <div 
-          className="h-full bg-ring transition-all duration-500 ease-out"
-          style={{ width: `${fallbackData.progressPercent * 100}%` }}
+          className="h-full bg-[#38BDF8] shadow-[0_0_8px_rgba(56,189,248,0.6)] transition-all duration-500 ease-out"
+          style={{ width: `${pct}%` }}
         />
       </div>
 
@@ -57,9 +60,11 @@ export function ContinueLearningCard({ data }: { data?: ContinueLearningData }) 
 
       {/* Continue Button */}
       <div className="w-full" style={{ boxShadow: "0 4px 16px rgba(103, 232, 249, 0.15)" }}>
-        <button className="w-full bg-ring text-background py-4 rounded-lg font-bold text-[15px] font-sans hover:bg-opacity-90 transition-colors">
-          Continue Learning
-        </button>
+        <Link href="/studio">
+          <button className="w-full bg-[#38BDF8] text-black py-4 rounded-lg font-bold text-[15px] font-sans hover:bg-opacity-90 transition-colors">
+            Continue Learning
+          </button>
+        </Link>
       </div>
     </div>
   );

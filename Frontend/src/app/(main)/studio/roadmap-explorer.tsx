@@ -22,9 +22,10 @@ interface RoadmapExplorerProps {
   roadmap: RoadmapModule[];
   activeLearningContext?: string;
   onSelectActivity?: (activityTitle: string, activityType: string) => void;
+  onToggleComplete?: (activityId: string, completed: boolean) => void;
 }
 
-export function RoadmapExplorer({ roadmap, activeLearningContext, onSelectActivity }: RoadmapExplorerProps) {
+export function RoadmapExplorer({ roadmap, activeLearningContext, onSelectActivity, onToggleComplete }: RoadmapExplorerProps) {
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto w-full text-foreground bg-canvas h-full overflow-y-auto no-scrollbar pb-32">
       <div className="mb-8">
@@ -33,7 +34,7 @@ export function RoadmapExplorer({ roadmap, activeLearningContext, onSelectActivi
           <h2 className="text-xl font-bold text-foreground">Curriculum Navigator</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          What can I learn next? Click any activity below to load its YouTube lecture directly into the interactive Learning Lab.
+          What can I learn next? Click any activity below to load its YouTube lecture directly into the interactive Learning Lab. Click the checkmark to track your course progress!
         </p>
       </div>
 
@@ -44,6 +45,7 @@ export function RoadmapExplorer({ roadmap, activeLearningContext, onSelectActivi
             module={module} 
             activeLearningContext={activeLearningContext}
             onSelectActivity={onSelectActivity}
+            onToggleComplete={onToggleComplete}
           />
         ))}
       </div>
@@ -54,11 +56,13 @@ export function RoadmapExplorer({ roadmap, activeLearningContext, onSelectActivi
 function ModuleCard({ 
   module, 
   activeLearningContext,
-  onSelectActivity 
+  onSelectActivity,
+  onToggleComplete
 }: { 
   module: RoadmapModule;
   activeLearningContext?: string;
   onSelectActivity?: (activityTitle: string, activityType: string) => void;
+  onToggleComplete?: (activityId: string, completed: boolean) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const progressInt = Math.round(module.progressPercent * 100);
@@ -80,11 +84,11 @@ function ModuleCard({
         <div className="hidden md:flex items-center gap-4 shrink-0">
           <div className="w-24 h-1.5 bg-black/40 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-fg-accent transition-all duration-500 ease-out" 
+              className="h-full bg-cyan-400 shadow-[0_0_8px_rgba(56,189,248,0.6)] transition-all duration-500 ease-out" 
               style={{ width: `${progressInt}%` }}
             />
           </div>
-          <span className="text-sm font-bold text-muted-foreground w-10 text-right">{progressInt}%</span>
+          <span className="text-sm font-bold text-cyan-400 w-10 text-right">{progressInt}%</span>
         </div>
 
         <div className="shrink-0 text-muted-foreground ml-2">
@@ -101,6 +105,7 @@ function ModuleCard({
               section={section} 
               activeLearningContext={activeLearningContext}
               onSelectActivity={onSelectActivity}
+              onToggleComplete={onToggleComplete}
             />
           ))}
         </div>
@@ -112,11 +117,13 @@ function ModuleCard({
 function SectionCard({ 
   section, 
   activeLearningContext,
-  onSelectActivity 
+  onSelectActivity,
+  onToggleComplete
 }: { 
   section: RoadmapSection;
   activeLearningContext?: string;
   onSelectActivity?: (activityTitle: string, activityType: string) => void;
+  onToggleComplete?: (activityId: string, completed: boolean) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -150,6 +157,7 @@ function SectionCard({
               activity={activity} 
               activeLearningContext={activeLearningContext}
               onSelectActivity={onSelectActivity}
+              onToggleComplete={onToggleComplete}
             />
           ))}
         </div>
@@ -161,11 +169,13 @@ function SectionCard({
 function ActivityRow({ 
   activity, 
   activeLearningContext,
-  onSelectActivity 
+  onSelectActivity,
+  onToggleComplete
 }: { 
   activity: RoadmapActivity;
   activeLearningContext?: string;
   onSelectActivity?: (activityTitle: string, activityType: string) => void;
+  onToggleComplete?: (activityId: string, completed: boolean) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -190,15 +200,22 @@ function ActivityRow({
 
   const IconComponent = isCompleted ? CheckCircle2 : getActivityIcon(activity.type);
   const iconColor = isCompleted 
-    ? "text-accent-emerald" 
+    ? "text-cyan-400" 
     : (isActive ? "text-accent-primary" : (isInProgress ? "text-foreground" : "text-muted-foreground"));
   const bgColor = isActive 
     ? "bg-accent-primary/10 border-accent-primary/60" 
-    : (isCompleted ? "bg-sidebar border-border/50" : (isInProgress ? "bg-fg-accent/10 border-fg-accent" : "bg-surface border-border/50"));
+    : (isCompleted ? "bg-[#162A32]/40 border-cyan-500/30" : (isInProgress ? "bg-fg-accent/10 border-fg-accent" : "bg-surface border-border/50"));
 
   const handleRowClick = () => {
     if (onSelectActivity) {
       onSelectActivity(activity.title, activity.type || "Watch Video");
+    }
+  };
+
+  const handleToggleCheck = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleComplete) {
+      onToggleComplete(activity.id, !isCompleted);
     }
   };
 
@@ -214,22 +231,35 @@ function ActivityRow({
         className={cn(
           "group flex items-center gap-3.5 mx-4 md:mx-6 my-1 p-3 rounded-lg border transition-all text-left cursor-pointer",
           bgColor,
-          "hover:border-accent-primary hover:bg-accent-primary/5 shadow-sm"
+          "hover:border-cyan-400/60 hover:bg-cyan-500/5 shadow-sm"
         )}
       >
-        <IconComponent className={cn("w-4 h-4 shrink-0 transition-transform group-hover:scale-110", iconColor)} />
+        <button
+          onClick={handleToggleCheck}
+          className="p-1 -m-1 rounded-md hover:bg-white/10 transition-colors"
+          title={isCompleted ? "Mark incomplete" : "Mark completed (+progress)"}
+        >
+          <IconComponent className={cn("w-4 h-4 shrink-0 transition-transform group-hover:scale-110", iconColor)} />
+        </button>
         
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <h5 className={cn(
             "text-sm truncate",
-            isActive ? "font-bold text-accent-primary" : (isInProgress ? "font-bold text-accent-emerald underline decoration-accent-emerald/40 underline-offset-4" : "font-medium text-foreground"),
-            isCompleted && "text-accent-emerald underline decoration-accent-emerald/40 underline-offset-4"
+            isCompleted && "text-cyan-300 line-through decoration-cyan-500/40",
+            isActive && !isCompleted && "font-bold text-accent-primary",
+            isInProgress && !isActive && !isCompleted && "font-bold text-accent-emerald underline decoration-accent-emerald/40 underline-offset-4",
+            !isActive && !isInProgress && !isCompleted && "font-medium text-foreground"
           )}>
             {activity.title}
           </h5>
           {isActive && (
             <span className="px-2 py-0.5 rounded-full bg-accent-primary/20 text-accent-primary text-[10px] font-bold shrink-0 animate-pulse">
               Active in Lab
+            </span>
+          )}
+          {isCompleted && (
+            <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-semibold shrink-0">
+              Completed
             </span>
           )}
         </div>

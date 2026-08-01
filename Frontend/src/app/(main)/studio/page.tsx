@@ -24,13 +24,23 @@ import {
   FlaskConical,
   X,
   Plus,
-  ArrowUp
+  ArrowUp,
+  Play
 } from "lucide-react";
 import { RoadmapExplorer } from "./roadmap-explorer";
 import { ApiClient } from "@/lib/api-client";
 import { MOCK_PYTHON_ROADMAP, MOCK_FLASHCARDS } from "@/lib/mock-data";
+import { useWorkspace } from "@/lib/workspace-context";
 
 export default function StudioPage() {
+  const { 
+    activeWorkspace, 
+    activeWorkspaceId, 
+    updateProgress, 
+    updateActiveContext,
+    saveWorkspace 
+  } = useWorkspace();
+
   const [isScrollMode, setIsScrollMode] = useState(false);
   const [videoFraction, setVideoFraction] = useState(0.6); // 60% video, 40% canvas
   const [sidebarWidth, setSidebarWidth] = useState(360);
@@ -41,15 +51,74 @@ export default function StudioPage() {
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   const [persona, setPersona] = useState<any>(null);
   
-  // Video Player & Learning Context
+  // Video Player & Learning Context - 100% Dynamic, no hardcoded video IDs
   const [playerRef, setPlayerRef] = useState<any>(null);
-  const [videoId, setVideoId] = useState("pnWINBJ3-yA"); // Default Python OOP video
-  const [videoTitle, setVideoTitle] = useState("Python Object Oriented Programming");
-  const [activeLearningContext, setActiveLearningContext] = useState("Foundations");
+  const [videoId, setVideoId] = useState<string>("");
+  const [videoTitle, setVideoTitle] = useState<string>("");
+  const [activeLearningContext, setActiveLearningContext] = useState<string>("");
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
 
+  // Helper to fetch and assign video dynamically for a topic
+  const fetchTopicVideo = async (topicTitle: string, contextStr: string = "") => {
+    if (!topicTitle) return;
+    setIsLoadingVideo(true);
+    try {
+      const res = await ApiClient.get(`/search/videos?topic=${encodeURIComponent(topicTitle)}&context=${encodeURIComponent(contextStr)}`);
+      if (Array.isArray(res) && res.length > 0) {
+        const vid = res[0].id;
+        const vTitle = res[0].title || topicTitle;
+        setVideoId(vid);
+        setVideoTitle(vTitle);
+        setActiveLearningContext(topicTitle);
+        if (activeWorkspaceId) {
+          updateActiveContext(topicTitle, vid, vTitle);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to search video for topic:", e);
+    } finally {
+      setIsLoadingVideo(false);
+    }
+  };
+
+  // Synchronize from active workspace
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (activeWorkspace) {
+      setPersona(activeWorkspace);
+      if (activeWorkspace.activeLearningContext) {
+        setActiveLearningContext(activeWorkspace.activeLearningContext);
+      } else if (activeWorkspace.subtitle || activeWorkspace.title) {
+        setActiveLearningContext(activeWorkspace.subtitle || activeWorkspace.title);
+      }
+
+      if (activeWorkspace.videoId) {
+        setVideoId(activeWorkspace.videoId);
+      } else {
+        setVideoId("");
+      }
+
+      if (activeWorkspace.videoTitle) {
+        setVideoTitle(activeWorkspace.videoTitle);
+      } else {
+        setVideoTitle("");
+      }
+
+      if (activeWorkspace.roadmap && Array.isArray(activeWorkspace.roadmap) && activeWorkspace.roadmap.length > 0) {
+        setRoadmap(activeWorkspace.roadmap);
+        // If workspace doesn't have a saved video yet, search dynamically for the first roadmap activity
+        if (!activeWorkspace.videoId) {
+          const firstAct = activeWorkspace.roadmap[0]?.sections?.[0]?.activities?.[0]?.title 
+            || activeWorkspace.title 
+            || activeWorkspace.subject;
+          if (firstAct) {
+            fetchTopicVideo(firstAct, activeWorkspace.title || activeWorkspace.subject || "");
+          }
+        }
+      } else {
+        const topicToGenerate = activeWorkspace.subtitle || activeWorkspace.title || activeWorkspace.subject || "Software Engineering";
+        generateRoadmapForTopic(topicToGenerate);
+      }
+    } else if (typeof window !== "undefined") {
       const saved = localStorage.getItem('atlas_persona');
       const savedContext = localStorage.getItem('atlas_active_context');
       if (savedContext) {
@@ -64,26 +133,54 @@ export default function StudioPage() {
         }
       }
     }
-  }, []);
+  }, [activeWorkspaceId]);
+
+  const generateRoadmapForTopic = async (topic: string) => {
+    setIsGeneratingRoadmap(true);
+    try {
+      const response = await ApiClient.post('/roadmap/generate', {
+        topic: topic,
+        target_role: "Learner",
+        experience_level: "Beginner"
+      });
+      if (response && response.modules) {
+        setRoadmap(response.modules);
+        if (activeWorkspaceId) {
+          saveWorkspace({ roadmap: response.modules });
+        }
+        // Auto-load video for first activity in the generated roadmap if none is loaded
+        const firstAct = response.modules[0]?.sections?.[0]?.activities?.[0]?.title;
+        if (firstAct && !videoId) {
+          fetchTopicVideo(firstAct, topic);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to generate roadmap:", err);
+    } finally {
+      setIsGeneratingRoadmap(false);
+    }
+  };
 
   const handleSelectActivity = async (topicTitle: string, activityType: string = "Watch Video") => {
     if (!topicTitle) return;
     setActiveLearningContext(topicTitle);
-    if (typeof window !== "undefined") {
-      localStorage.setItem('atlas_active_context', topicTitle);
-    }
-
+    
     if (activityType === "Generate Flashcards") {
       setShowFlashcards(true);
     }
 
     setIsLoadingVideo(true);
+    let matchedVideoId = "";
+    let matchedVideoTitle = topicTitle;
+
     try {
       const contextStr = persona?.subtitle || persona?.title || "";
       const res = await ApiClient.get(`/search/videos?topic=${encodeURIComponent(topicTitle)}&context=${encodeURIComponent(contextStr)}`);
       if (Array.isArray(res) && res.length > 0) {
-        setVideoId(res[0].id);
-        setVideoTitle(res[0].title || topicTitle);
+        matchedVideoId = res[0].id;
+        matchedVideoTitle = res[0].title || topicTitle;
+        setVideoId(matchedVideoId);
+        setVideoTitle(matchedVideoTitle);
       }
     } catch (e) {
       console.error("Failed to search videos for topic:", e);
@@ -91,8 +188,59 @@ export default function StudioPage() {
       setIsLoadingVideo(false);
     }
 
+    // Persist active context and video to workspace state & database
+    if (matchedVideoId) {
+      updateActiveContext(topicTitle, matchedVideoId, matchedVideoTitle);
+    } else {
+      updateActiveContext(topicTitle);
+    }
+
     // Switch to Learning Lab Workspace
     setActiveWorkspaceTab("lab");
+  };
+
+  const handleToggleActivityComplete = (activityId: string, completed: boolean) => {
+    let totalActs = 0;
+    let completedActs = 0;
+
+    const updatedRoadmap = roadmap.map((module) => {
+      let moduleTotal = 0;
+      let moduleCompleted = 0;
+
+      const updatedSections = module.sections?.map((section: any) => {
+        const updatedActivities = section.activities?.map((act: any) => {
+          totalActs++;
+          moduleTotal++;
+          const isActCompleted = act.id === activityId ? completed : act.status === 'Completed';
+          if (isActCompleted) {
+            completedActs++;
+            moduleCompleted++;
+          }
+          return {
+            ...act,
+            status: isActCompleted ? 'Completed' : 'Not Started'
+          };
+        });
+        return {
+          ...section,
+          activities: updatedActivities
+        };
+      });
+
+      const moduleProgressPercent = moduleTotal > 0 ? moduleCompleted / moduleTotal : 0;
+
+      return {
+        ...module,
+        progressPercent: moduleProgressPercent,
+        sections: updatedSections
+      };
+    });
+
+    setRoadmap(updatedRoadmap);
+
+    const overallPct = totalActs > 0 ? Math.round((completedActs / totalActs) * 100) : 0;
+    updateProgress(overallPct);
+    saveWorkspace({ roadmap: updatedRoadmap });
   };
 
   const handlePersonaGenerated = async (newPersona: any) => {
@@ -105,21 +253,7 @@ export default function StudioPage() {
     handleSelectActivity(initialTopic, "Watch Video");
 
     // Generate Roadmap based on the new Persona Subject
-    setIsGeneratingRoadmap(true);
-    try {
-      const response = await ApiClient.post('/roadmap/generate', {
-        topic: initialTopic,
-        target_role: "Learner",
-        experience_level: "Beginner"
-      });
-      if (response && response.modules) {
-        setRoadmap(response.modules);
-      }
-    } catch (err) {
-      console.error("Failed to generate roadmap from persona:", err);
-    } finally {
-      setIsGeneratingRoadmap(false);
-    }
+    generateRoadmapForTopic(initialTopic);
   };
 
   const handleVerticalDrag = (e: React.MouseEvent) => {
@@ -351,6 +485,7 @@ export default function StudioPage() {
                     roadmap={roadmap} 
                     activeLearningContext={activeLearningContext}
                     onSelectActivity={handleSelectActivity}
+                    onToggleComplete={handleToggleActivityComplete}
                   />
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
@@ -368,7 +503,7 @@ export default function StudioPage() {
         <div className="flex-1 overflow-hidden flex flex-col relative">
           {isGeneratingRoadmap && (
             <div className="absolute inset-0 bg-canvas/80 backdrop-blur-sm z-10 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2 text-accent-primary">
+              <div className="flex flex-col items-center gap-2 text-cyan-400">
                 <Sparkles className="w-8 h-8 animate-pulse" />
                 <span className="text-sm font-bold">Generating Roadmap...</span>
               </div>
@@ -379,6 +514,7 @@ export default function StudioPage() {
               roadmap={roadmap} 
               activeLearningContext={activeLearningContext}
               onSelectActivity={handleSelectActivity}
+              onToggleComplete={handleToggleActivityComplete}
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
@@ -386,16 +522,138 @@ export default function StudioPage() {
               <p className="text-sm font-medium">Start an interview with Atlas to generate your customized learning roadmap.</p>
               <button 
                 onClick={() => { setSidebarTab("ai"); setActiveWorkspaceTab("lab"); }}
-                className="mt-4 px-4 py-2 bg-accent-primary text-black font-bold rounded-lg hover:bg-accent-primary/90 transition-colors"
+                className="mt-4 px-4 py-2 bg-cyan-400 text-black font-bold rounded-lg hover:bg-cyan-300 transition-colors"
               >
                 Chat with Atlas
               </button>
             </div>
           )}
         </div>
+      ) : activeWorkspaceTab === "persona" ? (
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 max-w-4xl mx-auto w-full">
+          <div className="bg-[#181818] border border-border/60 rounded-2xl p-6 md:p-8 shadow-xl">
+            <div className="flex items-center justify-between pb-6 border-b border-border/50">
+              <div>
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-wider">
+                  Cognitive Persona Profile
+                </span>
+                <h2 className="text-2xl font-bold text-foreground mt-2">
+                  {persona?.title || activeWorkspace?.title || "The Applied Visionary"}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {persona?.subtitle || activeWorkspace?.subtitle || "Adaptive Learner"}
+                </p>
+              </div>
+              <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-2xl shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+                🧠
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="my-6">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Pedagogical Summary</h3>
+              <p className="text-sm text-foreground/90 leading-relaxed bg-[#121212] p-4 rounded-xl border border-white/5">
+                {persona?.summary || activeWorkspace?.summary || "Tailored curriculum focusing on architectural intuition, code synthesis, and project-based mastery."}
+              </p>
+            </div>
+
+            {/* Traits */}
+            {persona?.traits && persona.traits.length > 0 && (
+              <div className="my-6">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Cognitive Traits</h3>
+                <div className="flex flex-wrap gap-2">
+                  {persona.traits.map((t: string, idx: number) => (
+                    <span key={idx} className="px-3 py-1.5 rounded-lg bg-surface border border-white/10 text-xs font-medium text-cyan-300">
+                      ✨ {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Metrics */}
+            {persona?.metrics && (
+              <div className="mt-6 pt-6 border-t border-border/50 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {Object.entries(persona.metrics).map(([k, v]: [string, any], idx) => (
+                  <div key={idx} className="bg-[#141414] p-3 rounded-xl border border-white/5">
+                    <p className="text-[10px] uppercase text-muted-foreground font-semibold">{k.replace(/_/g, ' ')}</p>
+                    <p className="text-base font-bold text-cyan-400 mt-0.5">{String(v)}%</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeWorkspaceTab === "mind_map" ? (
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 max-w-5xl mx-auto w-full">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-cyan-400" />
+                Knowledge Graph & Blueprint Nodes
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Interactive conceptual nodes generated for your custom track. Click any node to load its lecture into the Learning Lab.
+              </p>
+            </div>
+            <button 
+              onClick={() => setActiveWorkspaceTab("lab")}
+              className="px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-bold transition"
+            >
+              Open Learning Lab ➔
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(persona?.blueprintNodes || (roadmap.length > 0 ? roadmap.flatMap(m => m.sections || []) : [
+              { title: "Core Fundamentals", description: "Variables, syntax structures, and semantic primitives." },
+              { title: "Object-Oriented Design", description: "Classes, abstraction, polymorphism, and composition." },
+              { title: "Memory Architecture", description: "Pointers, reference counts, and garbage collection models." },
+              { title: "Async Concurrency", description: "Event loops, coroutines, thread pools, and race conditions." },
+              { title: "Data Pipelines", description: "Stream processing, vectorized queries, and persistence layers." },
+              { title: "Applied Systems Design", description: "Distributed caching, RPC architectures, and latency optimization." }
+            ])).map((node: any, idx: number) => {
+              const nodeTitle = typeof node === "string" ? node : (node.title || node.name || `Concept #${idx+1}`);
+              const nodeDesc = node.description || node.summary || "Interactive curriculum component with targeted multimedia lectures.";
+              const isNodeActive = activeLearningContext.toLowerCase().includes(nodeTitle.toLowerCase());
+
+              return (
+                <div 
+                  key={idx}
+                  onClick={() => handleSelectActivity(nodeTitle, "Watch Video")}
+                  className={cn(
+                    "p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none",
+                    isNodeActive 
+                      ? "bg-[#1F2937]/50 border-cyan-400 shadow-[0_0_15px_rgba(56,189,248,0.2)]" 
+                      : "bg-[#181818] border-border/60 hover:border-cyan-500/40 hover:bg-[#202020]"
+                  )}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-muted-foreground border border-white/5">
+                        Node #{idx + 1}
+                      </span>
+                      <PlayCircle className={cn("w-4 h-4 transition-transform group-hover:scale-110", isNodeActive ? "text-cyan-400" : "text-muted-foreground group-hover:text-cyan-400")} />
+                    </div>
+                    <h3 className={cn("text-sm font-bold transition-colors", isNodeActive ? "text-cyan-300" : "text-foreground group-hover:text-white")}>
+                      {nodeTitle}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                      {nodeDesc}
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
+                    <span className="text-cyan-400 font-semibold group-hover:underline">Launch Lecture</span>
+                    <span className="text-muted-foreground">→</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          <p className="text-sm font-bold">This tab ({activeWorkspaceTab}) is currently under construction.</p>
+          <p className="text-sm font-bold">This tab ({activeWorkspaceTab}) is active.</p>
         </div>
       )}
     </div>
@@ -408,12 +666,14 @@ function VideoPlayer({
   videoId, 
   videoTitle,
   isLoading,
-  onReady 
+  onReady,
+  onEnded
 }: { 
   videoId: string; 
   videoTitle?: string;
   isLoading?: boolean;
   onReady: (e: any) => void;
+  onEnded?: () => void;
 }) {
   const opts = {
     height: '100%',
@@ -426,20 +686,35 @@ function VideoPlayer({
   };
 
   return (
-    <div className="w-full h-full relative bg-black flex flex-col group">
+    <div className="w-full h-full relative bg-black flex flex-col items-center justify-center group overflow-hidden">
       {isLoading && (
-        <div className="absolute inset-0 bg-black/75 z-20 flex flex-col items-center justify-center gap-2 text-accent-primary backdrop-blur-xs">
+        <div className="absolute inset-0 bg-black/80 z-20 flex flex-col items-center justify-center gap-3 text-cyan-400 backdrop-blur-xs">
           <Sparkles className="w-6 h-6 animate-pulse" />
-          <span className="text-xs font-bold">Loading YouTube Lecture...</span>
+          <span className="text-xs font-semibold text-foreground">Searching YouTube Lecture...</span>
         </div>
       )}
-      <YouTube 
-        videoId={videoId} 
-        opts={opts} 
-        onReady={onReady} 
-        className="w-full h-full absolute inset-0"
-        iframeClassName="w-full h-full"
-      />
+      {videoId ? (
+        <YouTube 
+          videoId={videoId} 
+          opts={opts} 
+          onReady={onReady} 
+          onEnd={onEnded}
+          className="w-full h-full absolute inset-0"
+          iframeClassName="w-full h-full"
+        />
+      ) : (
+        !isLoading && (
+          <div className="flex flex-col items-center justify-center p-8 text-center max-w-sm gap-3 z-10">
+            <div className="w-12 h-12 rounded-xl bg-surface border border-border flex items-center justify-center text-muted-foreground shadow-sm">
+              <Play className="w-5 h-5 ml-0.5 text-cyan-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-foreground">No Video Loaded</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Click any video topic in the <span className="text-cyan-400 font-medium">Roadmap</span> to stream the lecture tutorial.
+            </p>
+          </div>
+        )
+      )}
     </div>
   );
 }

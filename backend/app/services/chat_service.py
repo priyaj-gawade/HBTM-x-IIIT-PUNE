@@ -2,7 +2,6 @@
 
 import logging
 
-import google.generativeai as genai
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,9 +21,9 @@ class ChatService:
     """Business logic for AI chat conversations."""
 
     def __init__(self):
-        self.generation_config = genai.GenerationConfig(
-            temperature=0.8,
-        )
+        self.generation_config = {
+            "temperature": 0.8,
+        }
 
     async def chat(
         self, db: AsyncSession, user: User, data: ChatRequest
@@ -88,7 +87,6 @@ class ChatService:
                 model_name="gemini-3.1-flash-lite",
                 system_instruction=CHAT_SYSTEM_PROMPT,
                 generation_config=self.generation_config,
-                request_options={"timeout": 30},
             )
             reply = response.text
 

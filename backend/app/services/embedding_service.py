@@ -5,11 +5,11 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-import google.generativeai as genai
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.embedding import Embedding
+from app.utils.llm_manager import llm_manager
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,7 @@ class EmbeddingService:
         Create an embedding for content and store it in pgvector.
         """
         try:
-            # Async non-blocking call via asyncio.to_thread
-            result = await asyncio.to_thread(
-                genai.embed_content,
-                model="models/embedding-001",
-                content=content,
-                task_type="retrieval_document",
-            )
-            embedding_vector = result["embedding"]
+            embedding_vector = await llm_manager.embed_content_async(content)
 
             # Store in database
             embedding = Embedding(
@@ -66,14 +59,7 @@ class EmbeddingService:
         Search for similar content using vector similarity.
         """
         try:
-            # Async non-blocking call via asyncio.to_thread
-            result = await asyncio.to_thread(
-                genai.embed_content,
-                model="models/embedding-001",
-                content=query,
-                task_type="retrieval_query",
-            )
-            query_vector = result["embedding"]
+            query_vector = await llm_manager.embed_content_async(query)
             vector_str = "[" + ",".join(str(v) for v in query_vector) + "]"
 
             if content_type:

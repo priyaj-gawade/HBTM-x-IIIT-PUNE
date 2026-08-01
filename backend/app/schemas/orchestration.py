@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Dict, Any
 
 class Flashcard(BaseModel):
     id: str
@@ -65,21 +65,14 @@ class ProfilerOutputSchema(BaseModel):
     class Config:
         populate_by_name = True
 
-class CognitiveMetrics(BaseModel):
-    visualization: float = 0.5
-    applied: float = 0.5
-    theoretical: float = 0.5
-    pacing: float = 0.5
-    logic: float = 0.5
-
 class BlueprintNode(BaseModel):
-    id: str = "node-1"
-    dayRange: str = "Day 1-3"
+    id: Optional[str] = "node-1"
+    dayRange: Optional[str] = None
     title: str = "Foundation"
-    description: str = "Core concepts overview"
-    topics: List[str] = []
-    alternatives: List[str] = []
-    selectedFormat: str = "Interactive Sandbox"
+    description: Optional[str] = "Core concepts overview"
+    topics: List[str] = Field(default_factory=list)
+    alternatives: List[str] = Field(default_factory=list)
+    selectedFormat: Optional[str] = "Interactive Sandbox"
     isHandsOnFocus: bool = True
 
 class PersonaProfileSchema(BaseModel):
@@ -87,8 +80,8 @@ class PersonaProfileSchema(BaseModel):
     title: str = "Learner"
     subtitle: str = "Personalized learning path"
     summary: str = "Tailored study blueprint."
-    traits: List[str] = []
-    metrics: CognitiveMetrics = Field(default_factory=CognitiveMetrics)
+    traits: List[str] = Field(default_factory=list)
+    metrics: Dict[str, Any] = Field(default_factory=dict)
     blueprintNodes: List[BlueprintNode] = Field(default_factory=list)
 
 class InterviewRequest(BaseModel):

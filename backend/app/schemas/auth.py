@@ -1,12 +1,21 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, field_validator, Field
+import re
+from pydantic import BaseModel, field_validator, Field
 
 
 class SignupRequest(BaseModel):
     """POST /api/auth/signup request body with validation."""
     name: str = Field(..., min_length=1, max_length=255)
-    email: EmailStr
+    email: str = Field(..., min_length=3, max_length=255)
     password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        stripped = v.strip().lower()
+        if not re.match(r"^[^@]+@[^@]+\.[^@]+$", stripped):
+            raise ValueError("Invalid email format")
+        return stripped
 
     @field_validator("name")
     @classmethod
@@ -28,7 +37,7 @@ class SignupRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     """POST /api/auth/login request body."""
-    email: EmailStr
+    email: str
     password: str
 
 

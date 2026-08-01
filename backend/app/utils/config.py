@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     NVIDIA_KEY_3: str = ""
     NVIDIA_KEY_4: str = ""
 
+    # YouTube Data API (Optional)
+    YOUTUBE_API_KEY: str = ""
+
     # App & Security
     APP_NAME: str = "Atlas AI"
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
