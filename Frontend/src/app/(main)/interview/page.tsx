@@ -39,6 +39,41 @@ export default function InterviewPage() {
     }
   }, []);
 
+  // Fetch initial thread
+  useEffect(() => {
+    fetch("http://localhost:8000/api/orchestration/chats")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          const id = data[0].id;
+          setThreadId(id);
+          return fetch(`http://localhost:8000/api/orchestration/chats/${id}/messages`);
+        } else {
+          return fetch("http://localhost:8000/api/orchestration/chats", { 
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: "New Conversation" })
+          })
+            .then(res => res.json())
+            .then(newThread => {
+              setThreadId(newThread.id);
+              return { json: () => Promise.resolve([]) };
+            });
+        }
+      })
+      .then(res => res.json())
+      .then(msgs => {
+         if (Array.isArray(msgs)) {
+           setMessages(msgs.map((m: any) => ({
+             id: m.id,
+             sender: m.role,
+             text: m.content
+           })));
+         }
+      })
+      .catch(console.error);
+  }, []);
+
   // Auto-scroll to bottom on new message
   useEffect(() => {
     if (scrollRef.current) {

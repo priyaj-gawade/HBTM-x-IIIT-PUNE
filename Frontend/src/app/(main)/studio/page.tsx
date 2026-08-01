@@ -244,7 +244,6 @@ export default function StudioPage() {
             </button>
           </div>
 
-          {/* Sidebar Content */}
           <div className="flex-1 overflow-y-auto">
             {sidebarTab === "ai" ? <SidebarAIMock onPersonaGenerated={handlePersonaGenerated} playerRef={playerRef} videoId={videoId} /> : (
               <div className="flex flex-col h-full overflow-hidden w-full relative">
