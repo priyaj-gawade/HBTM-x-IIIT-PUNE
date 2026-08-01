@@ -24,12 +24,11 @@ class QuestionItem(BaseModel):
     id: str
     topicTag: str
     questionText: str
-    type: Literal['mcq', 'subjective', 'code']
-    options: List[QuizOption]
-    
-    codeInitialTemplate: Optional[str]
-    codeSolution: Optional[str]
-    expectedOutput: Optional[str]
+    type: Literal['mcq', 'subjective', 'code'] = "mcq"
+    options: Optional[List[QuizOption]] = Field(default_factory=list)
+    codeInitialTemplate: Optional[str] = None
+    codeSolution: Optional[str] = None
+    expectedOutput: Optional[str] = None
     
 class QuizGenerationRequest(BaseModel):
     topic: str
@@ -40,22 +39,31 @@ class QuizGenerationResponse(BaseModel):
     questions: List[QuestionItem]
 
 class InferredPersona(BaseModel):
-    domain: Optional[str]
-    subject: Optional[str]
-    iq_logic: Optional[str] = Field(..., alias="iqLogic")
-    eq_resilience: Optional[str] = Field(..., alias="eqResilience")
+    domain: Optional[str] = None
+    subject: Optional[str] = None
+    iq_logic: Optional[str] = Field(default=None, alias="iqLogic")
+    eq_resilience: Optional[str] = Field(default=None, alias="eqResilience")
+
+    class Config:
+        populate_by_name = True
 
 class InternalState(BaseModel):
-    domain_identified: bool = Field(..., alias="domainIdentified")
-    eq_identified: bool = Field(..., alias="eqIdentified")
-    modality_identified: bool = Field(..., alias="modalityIdentified")
-    confidence_score: int = Field(..., alias="confidenceScore")
-    current_inferred_persona: Optional[InferredPersona] = Field(..., alias="currentInferredPersona")
+    domain_identified: bool = Field(default=False, alias="domainIdentified")
+    eq_identified: bool = Field(default=False, alias="eqIdentified")
+    modality_identified: bool = Field(default=False, alias="modalityIdentified")
+    confidence_score: int = Field(default=0, alias="confidenceScore")
+    current_inferred_persona: Optional[InferredPersona] = Field(default=None, alias="currentInferredPersona")
+
+    class Config:
+        populate_by_name = True
 
 class ProfilerOutputSchema(BaseModel):
-    reply_to_user: str = Field(..., alias="replyToUser")
-    options: List[str] = Field(..., description="List of short interactive reply options (max 2-3). MUST include an option ending with '➔' if confidence_score >= 80.")
-    internal_state: InternalState = Field(..., alias="internalState")
+    reply_to_user: str = Field(default="", alias="replyToUser")
+    options: List[str] = Field(default_factory=list, description="List of short interactive reply options (max 2-3).")
+    internal_state: Optional[InternalState] = Field(default_factory=InternalState, alias="internalState")
+
+    class Config:
+        populate_by_name = True
 
 class CognitiveMetrics(BaseModel):
     visualization: float = 0.5

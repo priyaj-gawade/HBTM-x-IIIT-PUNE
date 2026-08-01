@@ -41,7 +41,6 @@ async def generate_mindmap(request: MindMapRequest):
             system_instruction=MINDMAP_SYSTEM_PROMPT,
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
-                response_schema=MindMapSchema
             )
         )
         data = json.loads(response.text)

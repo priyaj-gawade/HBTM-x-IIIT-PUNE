@@ -1,7 +1,6 @@
 """Auth Service - signup, login, and user retrieval."""
 
 import logging
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,44 +14,43 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-async def signup(db: AsyncSession, data: SignupRequest) -> AuthResponse:
-    """Register a new user and return JWT token."""
-    # Check if email already exists
-    result = await db.execute(select(User).where(User.email == data.email))
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
-        raise DuplicateEmailError("Email already registered")
+class AuthService:
+    """Authentication and user management service."""
 
-    # Create user
-    user = User(
-        name=data.name,
-        email=data.email,
-        password_hash=hash_password(data.password),
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    async def signup(self, db: AsyncSession, data: SignupRequest) -> AuthResponse:
+        """Register a new user and return JWT token."""
+        # Check if email already exists
+        result = await db.execute(select(User).where(User.email == data.email))
+        existing_user = result.scalar_one_or_none()
+        if existing_user:
+            raise DuplicateEmailError("Email already registered")
 
-    # Generate token
-    token = create_access_token(str(user.id))
+        # Create user
+        user = User(
+            name=data.name,
+            email=data.email,
+            password_hash=hash_password(data.password),
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
 
-    # Log without PII
-    logger.info(f"New user registered: user_id={user.id}")
-    return AuthResponse(token=token, user_id=str(user.id))
+        # Generate token
+        token = create_access_token(str(user.id))
 
-async def login(db: AsyncSession, data: LoginRequest) -> AuthResponse:
-    """Authenticate user and return JWT token."""
-    result = await db.execute(select(User).where(User.email == data.email))
-    user = result.scalar_one_or_none()
+        # Log without PII
+        logger.info(f"New user registered: user_id={user.id}")
+        return AuthResponse(token=token, user_id=str(user.id))
 
-    if not user or not verify_password(data.password, user.password_hash):
-        raise InvalidCredentialsError("Invalid email or password")
+    async def login(self, db: AsyncSession, data: LoginRequest) -> AuthResponse:
+        """Authenticate user and return JWT token."""
+        result = await db.execute(select(User).where(User.email == data.email))
+        user = result.scalar_one_or_none()
 
-    token = create_access_token(str(user.id))
+        if not user or not verify_password(data.password, user.password_hash):
+            raise InvalidCredentialsError("Invalid email or password")
 
-    # Log without PII
-    logger.info(f"User logged in: user_id={user.id}")
-    return AuthResponse(token=token, user_id=str(user.id))
+        token = create_access_token(str(user.id))
 
         # Log without PII
         logger.info(f"User logged in: user_id={user.id}")
@@ -83,7 +81,7 @@ async def login(db: AsyncSession, data: LoginRequest) -> AuthResponse:
             user = User(
                 name=name,
                 email=email,
-                password_hash=hash_password(access_token[:32]), # Randomish hash for oauth users
+                password_hash=hash_password(access_token[:32]), # Random hash for oauth users
             )
             db.add(user)
             await db.commit()

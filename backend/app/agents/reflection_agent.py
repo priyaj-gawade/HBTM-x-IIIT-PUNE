@@ -7,6 +7,7 @@ from typing import Any, Dict
 import google.generativeai as genai
 
 from app.prompts.reflection_prompts import REFLECTION_SYSTEM_PROMPT, REFLECTION_USER_PROMPT
+from app.utils.llm_manager import llm_manager
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +23,7 @@ class ReflectionAgent:
     """
 
     def __init__(self):
-        self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=REFLECTION_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=0.7,
-                response_mime_type="application/json",
-            ),
-        )
+        pass
 
     async def process_reflection(
         self,
@@ -53,9 +47,14 @@ class ReflectionAgent:
                 memory_context=f"Relevant memories:\n{memory_context}" if memory_context else "",
             )
 
-            # Async non-blocking call with 30s timeout
-            response = await self.model.generate_content_async(
-                prompt,
+            # Async non-blocking call via rotational LLM manager
+            response = await llm_manager.generate_content_async(
+                prompt=prompt,
+                system_instruction=REFLECTION_SYSTEM_PROMPT,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    response_mime_type="application/json",
+                ),
                 request_options={"timeout": 30},
             )
             result = json.loads(response.text)

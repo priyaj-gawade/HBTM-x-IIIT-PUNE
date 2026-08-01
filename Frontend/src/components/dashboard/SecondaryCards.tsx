@@ -58,7 +58,7 @@ export function RoadmapPreviewCard({ progress }: { progress?: any }) {
       </div>
 
       <div className="h-[90px] flex items-start overflow-x-auto mt-auto no-scrollbar">
-        {nodes.map((node, idx) => {
+        {nodes.map((node: any, idx: number) => {
           const Icon = node.icon;
           return (
             <React.Fragment key={idx}>

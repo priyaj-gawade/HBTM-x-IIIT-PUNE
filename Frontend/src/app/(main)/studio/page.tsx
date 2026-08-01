@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import YouTube from "react-youtube";
 import { cn } from "@/lib/utils";
 import { 
@@ -45,6 +45,20 @@ export default function StudioPage() {
   const [playerRef, setPlayerRef] = useState<any>(null);
   const [videoId, setVideoId] = useState("pnWINBJ3-yA"); // Default Python OOP video
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem('atlas_persona');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          handlePersonaGenerated(parsed);
+        } catch (e) {
+          console.error("Failed to parse saved persona", e);
+        }
+      }
+    }
+  }, []);
+
   const handlePersonaGenerated = async (newPersona: any) => {
     setPersona(newPersona);
     setSidebarTab("roadmap");
@@ -52,12 +66,12 @@ export default function StudioPage() {
     // Generate Roadmap based on the new Persona Subject
     setIsGeneratingRoadmap(true);
     try {
-      const response = await ApiClient.post('/mindmap/generate', {
-        topic: newPersona.subtitle || "Python Basics",
+      const response = await ApiClient.post('/roadmap/generate', {
+        topic: newPersona.subtitle || newPersona.title || "Python Basics",
         target_role: "Learner",
         experience_level: "Beginner"
       });
-      if (response.modules) {
+      if (response && response.modules) {
         setRoadmap(response.modules);
       }
     } catch (err) {

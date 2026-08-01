@@ -7,6 +7,7 @@ from typing import Any, Dict
 import google.generativeai as genai
 
 from app.prompts.identity_prompts import IDENTITY_SYSTEM_PROMPT, IDENTITY_USER_PROMPT
+from app.utils.llm_manager import llm_manager
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +23,7 @@ class IdentityAgent:
     """
 
     def __init__(self):
-        self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=IDENTITY_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=0.7,
-                response_mime_type="application/json",
-            ),
-        )
+        pass
 
     async def generate_blueprint(
         self,
@@ -53,9 +47,14 @@ class IdentityAgent:
                 memory_context=f"Relevant memories:\n{memory_context}" if memory_context else "",
             )
 
-            # Async non-blocking call with 30s timeout
-            response = await self.model.generate_content_async(
-                prompt,
+            # Async non-blocking call via rotational LLM manager
+            response = await llm_manager.generate_content_async(
+                prompt=prompt,
+                system_instruction=IDENTITY_SYSTEM_PROMPT,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    response_mime_type="application/json",
+                ),
                 request_options={"timeout": 30},
             )
             blueprint = json.loads(response.text)

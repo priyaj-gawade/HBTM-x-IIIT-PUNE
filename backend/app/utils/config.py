@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     GEMINI_KEY_1: str = ""
     GEMINI_KEY_2: str = ""
     GEMINI_KEY_3: str = ""
+    GEMINI_API_KEY: str = ""
+
+    # Nvidia NIM Keys
+    NVIDIA_KEY_1: str = ""
+    NVIDIA_KEY_2: str = ""
+    NVIDIA_KEY_3: str = ""
+    NVIDIA_KEY_4: str = ""
 
     # App & Security
     APP_NAME: str = "Atlas AI"

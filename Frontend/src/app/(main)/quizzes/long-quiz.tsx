@@ -8,13 +8,12 @@ import {
   XCircle, 
   Circle, 
   CircleDot, 
-  FactCheck, 
-  EditNote,
   Send,
-  WarningAmber
-} from "lucide-react"; // FactCheck -> ClipboardCheck, EditNote -> FileEdit, WarningAmber -> AlertTriangle. Let's adjust imports
-
-import { ClipboardCheck, FileEdit, AlertTriangle, Loader2 } from "lucide-react";
+  ClipboardCheck, 
+  FileEdit, 
+  AlertTriangle, 
+  Loader2 
+} from "lucide-react";
 
 interface LongQuizProps {
   questions: QuestionItem[];

@@ -6,7 +6,7 @@ import uuid
 import time
 
 from app.db.database import get_db
-from app.api.auth import get_current_user
+from app.utils.security import get_current_user
 from app.models.user import User
 from app.models.workspace import Workspace
 from app.schemas.workspace import WorkspaceCreate, WorkspaceUpdate, WorkspaceResponse

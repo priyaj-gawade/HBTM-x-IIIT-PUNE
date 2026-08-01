@@ -64,7 +64,6 @@ async def generate_flashcards(request: FlashcardGenerationRequest):
             model_name="gemini-3.1-flash-lite",
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
-                response_schema=FlashcardGenerationResponse
             )
         )
         return json.loads(response.text)
@@ -78,7 +77,21 @@ async def generate_quiz(request: QuizGenerationRequest):
 
     prompt = f"""
     Create a quiz with {request.count} questions about "{request.topic}" at a {request.difficulty} difficulty level.
-    The output should be JSON. Some questions can be 'mcq' (multiple choice) and some can be 'subjective' or 'code'.
+    The output should be a JSON object with format:
+    {{
+        "questions": [
+            {{
+                "id": "q1",
+                "topicTag": "{request.topic}",
+                "questionText": "Question text here",
+                "type": "mcq",
+                "options": [
+                    {{"id": "opt1", "text": "Option 1", "isCorrect": true}},
+                    {{"id": "opt2", "text": "Option 2", "isCorrect": false}}
+                ]
+            }}
+        ]
+    }}
     """
     
     try:
@@ -87,7 +100,6 @@ async def generate_quiz(request: QuizGenerationRequest):
             model_name="gemini-3.1-flash-lite",
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
-                response_schema=QuizGenerationResponse
             )
         )
         return json.loads(response.text)
@@ -108,10 +120,26 @@ async def trigger_interview(request: InterviewRequest):
             system_instruction=prompt,
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
-                response_schema=ProfilerOutputSchema
             )
         )
-        return json.loads(response.text)
+        data = json.loads(response.text)
+        reply = (
+            data.get("replyToUser") or 
+            data.get("reply_to_user") or 
+            data.get("reply") or 
+            data.get("message") or 
+            data.get("response") or 
+            data.get("text") or 
+            "Hello! I am Atlas Tutor. What subject or skill would you like to master today?"
+        )
+        options = data.get("options") or ["I'm ready to learn", "Explore topics"]
+        state = data.get("internalState") or data.get("internal_state") or {}
+        
+        return {
+            "replyToUser": reply,
+            "options": options,
+            "internalState": state
+        }
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -131,10 +159,24 @@ async def complete_interview(persona: InferredPersona):
             system_instruction=PERSONA_SYSTEM_PROMPT,
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
-                response_schema=PersonaProfileSchema
             )
         )
-        return json.loads(response.text)
+        data = json.loads(response.text)
+        return {
+            "renderMode": data.get("renderMode") or "default",
+            "title": data.get("title") or "The Dedicated Learner",
+            "subtitle": data.get("subtitle") or f"Mastering {persona.subject or 'Core Concepts'}",
+            "summary": data.get("summary") or "A systematic approach to hands-on learning and concept mastery.",
+            "traits": data.get("traits") or ["Analytical", "Methodical", "Resilient"],
+            "metrics": data.get("metrics") or {
+                "visualization": 0.8,
+                "theory": 0.7,
+                "practice": 0.9,
+                "pace": 0.6,
+                "retention": 0.85
+            },
+            "blueprintNodes": data.get("blueprintNodes") or ["Foundations", "Core Practice", "Mastery Project"]
+        }
     except Exception as e:
         import traceback
         traceback.print_exc()

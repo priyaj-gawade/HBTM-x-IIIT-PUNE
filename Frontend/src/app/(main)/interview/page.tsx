@@ -39,40 +39,7 @@ export default function InterviewPage() {
     }
   }, []);
 
-  // Fetch initial thread
-  useEffect(() => {
-    fetch("http://localhost:8000/api/orchestration/chats")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.length > 0) {
-          const id = data[0].id;
-          setThreadId(id);
-          return fetch(`http://localhost:8000/api/orchestration/chats/${id}/messages`);
-        } else {
-          return fetch("http://localhost:8000/api/orchestration/chats", { 
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: "New Conversation" })
-          })
-            .then(res => res.json())
-            .then(newThread => {
-              setThreadId(newThread.id);
-              return { json: () => Promise.resolve([]) };
-            });
-        }
-      })
-      .then(res => res.json())
-      .then(msgs => {
-         if (Array.isArray(msgs)) {
-           setMessages(msgs.map((m: any) => ({
-             id: m.id,
-             sender: m.role,
-             text: m.content
-           })));
-         }
-      })
-      .catch(console.error);
-  }, []);
+
 
   // Auto-scroll to bottom on new message
   useEffect(() => {
@@ -104,13 +71,20 @@ export default function InterviewPage() {
       if (isAffirmative && inferredPersona) {
         try {
           const personaRes = await ApiClient.post('/orchestration/interview/complete', inferredPersona);
-          await ApiClient.post('/workspaces', {
-            title: personaRes.title,
-            data: personaRes
-          });
+          if (typeof window !== "undefined") {
+            localStorage.setItem('atlas_persona', JSON.stringify(personaRes));
+          }
+          try {
+            await ApiClient.post('/workspaces', {
+              title: personaRes.title,
+              data: personaRes
+            });
+          } catch (wsErr) {
+            console.warn("Workspace save non-critical error:", wsErr);
+          }
           router.push('/studio');
         } catch (err) {
-          console.error(err);
+          console.error("Interview completion error:", err);
           setIsLoading(false);
         }
         return; // Stop here, redirecting
@@ -128,20 +102,30 @@ export default function InterviewPage() {
         history: historyStr || "No prior history."
       });
       
+      const replyText = 
+        res.replyToUser || 
+        res.reply_to_user || 
+        res.reply || 
+        res.message || 
+        res.text || 
+        res.response || 
+        "Hello! I am Atlas Tutor. What subject or skill would you like to master today?";
+      
       setMessages((prev) => [
         ...prev, 
         {
           id: `ai-${Date.now()}`,
           sender: "AI",
-          text: res.replyToUser,
-          options: res.options
+          text: replyText,
+          options: res.options || []
         }
       ]);
 
-      const isComplete = res.internalState?.confidenceScore >= 80 || (res.options && res.options.some((o: string) => o.endsWith('➔')));
+      const isComplete = (res.internalState?.confidenceScore ?? res.internal_state?.confidenceScore ?? 0) >= 80 || (res.options && res.options.some((o: string) => o.endsWith('➔')));
+      const statePersona = res.internalState?.currentInferredPersona ?? res.internal_state?.currentInferredPersona ?? res.internalState?.current_inferred_persona;
       
-      if (isComplete && res.internalState?.currentInferredPersona && !isAskingPlan) {
-        setInferredPersona(res.internalState.currentInferredPersona);
+      if (isComplete && statePersona && !isAskingPlan) {
+        setInferredPersona(statePersona);
         setIsAskingPlan(true);
         setMessages((prev) => [
           ...prev, 

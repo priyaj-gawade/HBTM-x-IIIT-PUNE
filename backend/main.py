@@ -52,6 +52,13 @@ async def lifespan(app: FastAPI):
         logger.error("JWT_SECRET_KEY is using default value — CHANGE THIS IN PRODUCTION")
 
     logger.info(f"Starting {settings.APP_NAME}...")
+    try:
+        from create_db import init_db
+        await init_db()
+        logger.info("Database schema verified and initialized.")
+    except Exception as e:
+        logger.warning(f"Database auto-initialization skipped or encountered an error: {e}")
+
     logger.info("Gemini AI configured. Database and agents initialized.")
     yield
     logger.info(f"Shutting down {settings.APP_NAME}...")
@@ -69,8 +76,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
