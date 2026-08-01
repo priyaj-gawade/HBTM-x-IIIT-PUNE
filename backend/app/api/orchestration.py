@@ -126,7 +126,8 @@ async def complete_interview(persona: InferredPersona):
         f"Domain: {persona.domain or 'General'}, "
         f"Subject: {persona.subject or 'Core Concepts'}, "
         f"IQ/Logic: {persona.iq_logic or 'High'}, "
-        f"EQ/Resilience: {persona.eq_resilience or 'Medium'}"
+        f"EQ/Resilience: {persona.eq_resilience or 'Medium'}, "
+        f"Time Commitment: {persona.time_commitment or 'Flexible'}"
     )
     
     try:
@@ -161,12 +162,21 @@ async def complete_interview(persona: InferredPersona):
 
         # Ensure default metrics structure if any keys missing
         metrics = data.get("metrics") or {}
+        
+        def safe_metric(key: str, default: int) -> int:
+            val = metrics.get(key, default)
+            try:
+                val = float(val)
+                return int(val * 100) if val <= 1.0 else int(val)
+            except (ValueError, TypeError):
+                return default
+
         default_metrics = {
-            "logic": float(metrics.get("logic", 0.85)),
-            "practice": float(metrics.get("practice", 0.80)),
-            "retention": float(metrics.get("retention", 0.75)),
-            "pacing": float(metrics.get("pacing", 0.70)),
-            "visualization": float(metrics.get("visualization", 0.75)),
+            "Analytical": safe_metric("analytical", 85),
+            "Practical": safe_metric("practical", 80),
+            "Consistency": safe_metric("consistency", 75),
+            "Focus": safe_metric("focus", 70),
+            "Time Factor": safe_metric("time_factor", 75),
         }
 
         return {

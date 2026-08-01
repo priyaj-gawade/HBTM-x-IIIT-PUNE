@@ -43,6 +43,7 @@ class InferredPersona(BaseModel):
     subject: Optional[str] = None
     iq_logic: Optional[str] = Field(default=None, alias="iqLogic")
     eq_resilience: Optional[str] = Field(default=None, alias="eqResilience")
+    time_commitment: Optional[str] = Field(default=None, alias="timeCommitment")
 
     class Config:
         populate_by_name = True

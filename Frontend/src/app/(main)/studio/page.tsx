@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import YouTube from "react-youtube";
 import { cn } from "@/lib/utils";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from "recharts";
 import { 
   Undo2, 
   FoldVertical, 
@@ -573,13 +574,53 @@ export default function StudioPage() {
 
             {/* Metrics */}
             {persona?.metrics && (
-              <div className="mt-6 pt-6 border-t border-border/50 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {Object.entries(persona.metrics).map(([k, v]: [string, any], idx) => (
-                  <div key={idx} className="bg-[#141414] p-3 rounded-xl border border-white/5">
-                    <p className="text-[10px] uppercase text-muted-foreground font-semibold">{k.replace(/_/g, ' ')}</p>
-                    <p className="text-base font-bold text-cyan-400 mt-0.5">{String(v)}%</p>
+              <div className="mt-6 pt-6 border-t border-border/50 flex flex-col gap-6">
+                
+                {/* Card 1: Spider Web Graph */}
+                <div className="bg-[#141414] p-6 rounded-xl border border-white/5 shadow-inner">
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">Cognitive Radar</h3>
+                  <div className="h-[250px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={
+                        Object.entries(persona.metrics).map(([key, val]: [string, any]) => ({
+                          subject: key.replace(/_/g, ' ').toUpperCase(),
+                          value: Number(val),
+                          fullMark: 100
+                        }))
+                      }>
+                        <PolarGrid stroke="#333" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#888', fontSize: 10 }} />
+                        <Radar
+                          name="Persona"
+                          dataKey="value"
+                          stroke="#22d3ee"
+                          fill="#22d3ee"
+                          fillOpacity={0.4}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
+                </div>
+
+                {/* Card 2: Horizontal Percentage Lines */}
+                <div className="bg-[#141414] p-6 rounded-xl border border-white/5 shadow-inner flex flex-col gap-4">
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Detailed Breakdown</h3>
+                  {Object.entries(persona.metrics).map(([key, val]: [string, any], idx) => (
+                    <div key={idx} className="flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-foreground">{key.replace(/_/g, ' ').toUpperCase()}</span>
+                        <span className="font-bold text-cyan-400">{String(val)}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-cyan-400 rounded-full transition-all duration-1000 ease-out" 
+                          style={{ width: `${Number(val)}%` }} 
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
               </div>
             )}
           </div>
