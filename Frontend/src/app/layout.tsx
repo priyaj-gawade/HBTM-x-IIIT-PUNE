@@ -18,8 +18,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Oreo Platform",
-  description: "Oreo Learning Space",
+  title: "Atlas Platform",
+  description: "Atlas Learning Space",
 };
 
 export default function RootLayout({
@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className={`${outfit.variable} ${jakarta.variable} ${jetbrains.variable} font-sans antialiased`}
       >

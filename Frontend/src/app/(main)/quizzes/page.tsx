@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ListChecks, LayoutGrid, TerminalSquare } from "lucide-react";
 import { MOCK_MICRO_QUIZ, MOCK_LONG_QUIZ, MOCK_CODE_CHALLENGE } from "@/lib/mock-data";
+import { ApiClient } from "@/lib/api-client";
 
 import { MicroQuiz } from "./micro-quiz";
 import { LongQuiz } from "./long-quiz";
@@ -11,6 +12,29 @@ import { CodeTerminal } from "./code-terminal";
 
 export default function QuizzesPage() {
   const [activeTab, setActiveTab] = useState<"micro" | "long" | "code">("micro");
+  const [questions, setQuestions] = useState<any[]>(MOCK_MICRO_QUIZ);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  React.useEffect(() => {
+    const fetchQuizzes = async () => {
+      setIsGenerating(true);
+      try {
+        const response = await ApiClient.post('/orchestration/assessments/generate', {
+          topic: "Python Data Structures",
+          count: 3,
+          difficulty: "Intermediate"
+        });
+        if (response.questions) {
+          setQuestions(response.questions);
+        }
+      } catch (err) {
+        console.error("Failed to fetch quizzes:", err);
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+    fetchQuizzes();
+  }, []);
 
   return (
     <div className="w-full h-full flex flex-col bg-canvas">
@@ -63,9 +87,17 @@ export default function QuizzesPage() {
 
       {/* Main Viewport */}
       <div className="flex-1 overflow-hidden relative">
+        {isGenerating && (
+          <div className="absolute inset-0 bg-canvas/80 backdrop-blur-sm z-10 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2 text-accent-primary">
+              <ListChecks className="w-8 h-8 animate-pulse" />
+              <span className="text-sm font-bold">Generating Assessments...</span>
+            </div>
+          </div>
+        )}
         {/* We absolutely position them and toggle opacity/pointer-events to preserve state if desired, or just conditionally render. Let's do conditional rendering to ensure clean mount/unmount for testing. */}
-        {activeTab === "micro" && <MicroQuiz questions={MOCK_MICRO_QUIZ} />}
-        {activeTab === "long" && <LongQuiz questions={MOCK_LONG_QUIZ} />}
+        {activeTab === "micro" && <MicroQuiz questions={questions} />}
+        {activeTab === "long" && <LongQuiz questions={questions} />}
         {activeTab === "code" && <CodeTerminal question={MOCK_CODE_CHALLENGE} />}
       </div>
     </div>

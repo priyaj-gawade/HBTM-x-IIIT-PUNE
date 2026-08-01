@@ -3,14 +3,29 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
+import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
+import { ApiClient } from "@/lib/api-client";
 
-export default function LoginPage() {
+const CLIENT_ID = "762437601956-3ae7sap4q289j54s33qkiq811ae7tkih.apps.googleusercontent.com";
+
+function LoginContent() {
   const router = useRouter();
 
-  const handleGoogleLogin = () => {
-    // Navigate to dashboard on click since this is a UI implementation
-    router.push("/dashboard");
-  };
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (codeResponse) => {
+      console.log('Google OAuth Success, authenticating with backend...');
+      try {
+        const res = await ApiClient.post('/auth/google', {
+          access_token: codeResponse.access_token
+        });
+        ApiClient.setToken(res.token);
+        router.push("/dashboard");
+      } catch (err) {
+        console.error('Backend Authentication Failed:', err);
+      }
+    },
+    onError: (error) => console.log('Login Failed:', error)
+  });
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-canvas relative overflow-hidden">
@@ -27,7 +42,7 @@ export default function LoginPage() {
             <Sparkles className="w-5 h-5 text-black" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
-            Oreo.
+            Atlas.
           </h1>
         </div>
 
@@ -37,7 +52,7 @@ export default function LoginPage() {
 
         {/* Google Button */}
         <button 
-          onClick={handleGoogleLogin}
+          onClick={() => handleGoogleLogin()}
           className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-black py-3.5 px-6 rounded-xl font-bold transition-all transform hover:scale-[1.02] shadow-sm"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="22px" height="22px">
@@ -57,5 +72,13 @@ export default function LoginPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <GoogleOAuthProvider clientId={CLIENT_ID}>
+      <LoginContent />
+    </GoogleOAuthProvider>
   );
 }

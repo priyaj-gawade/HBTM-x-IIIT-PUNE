@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import YouTube from "react-youtube";
 import { cn } from "@/lib/utils";
 import { 
   Undo2, 
@@ -25,8 +26,9 @@ import {
   Plus,
   ArrowUp
 } from "lucide-react";
-import { MOCK_ROADMAP, MOCK_FLASHCARDS, MOCK_PYTHON_ROADMAP } from "@/lib/mock-data";
 import { RoadmapExplorer } from "./roadmap-explorer";
+import { ApiClient } from "@/lib/api-client";
+import { MOCK_PYTHON_ROADMAP, MOCK_FLASHCARDS } from "@/lib/mock-data";
 
 export default function StudioPage() {
   const [isScrollMode, setIsScrollMode] = useState(false);
@@ -35,6 +37,35 @@ export default function StudioPage() {
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"ai" | "roadmap">("roadmap");
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState("lab");
+  const [roadmap, setRoadmap] = useState<any[]>([]);
+  const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
+  const [persona, setPersona] = useState<any>(null);
+  
+  // Video Player Context
+  const [playerRef, setPlayerRef] = useState<any>(null);
+  const [videoId, setVideoId] = useState("pnWINBJ3-yA"); // Default Python OOP video
+
+  const handlePersonaGenerated = async (newPersona: any) => {
+    setPersona(newPersona);
+    setSidebarTab("roadmap");
+    
+    // Generate Roadmap based on the new Persona Subject
+    setIsGeneratingRoadmap(true);
+    try {
+      const response = await ApiClient.post('/mindmap/generate', {
+        topic: newPersona.subtitle || "Python Basics",
+        target_role: "Learner",
+        experience_level: "Beginner"
+      });
+      if (response.modules) {
+        setRoadmap(response.modules);
+      }
+    } catch (err) {
+      console.error("Failed to generate roadmap from persona:", err);
+    } finally {
+      setIsGeneratingRoadmap(false);
+    }
+  };
 
   const handleVerticalDrag = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -138,10 +169,10 @@ export default function StudioPage() {
             // SCROLL MODE
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="h-[400px] sm:h-[50vh] rounded-xl border border-border overflow-hidden shrink-0">
-                <VideoPlayerMock />
+                <VideoPlayer videoId={videoId} onReady={(e) => setPlayerRef(e.target)} />
               </div>
               <div className="h-[550px] sm:h-[60vh] rounded-xl border border-border overflow-hidden shrink-0">
-                {showFlashcards ? <FlashcardDeckMock toggle={() => setShowFlashcards(false)} /> : <CanvasMock toggle={() => setShowFlashcards(true)} />}
+                {showFlashcards ? <FlashcardDeckMock toggle={() => setShowFlashcards(false)} topic={persona?.subtitle || "Python Memory Management"} videoId={videoId} playerRef={playerRef} /> : <CanvasMock toggle={() => setShowFlashcards(true)} />}
               </div>
             </div>
           ) : (
@@ -151,7 +182,7 @@ export default function StudioPage() {
                 style={{ flex: videoFraction * 100 }} 
                 className="rounded-xl border border-border overflow-hidden min-h-[150px]"
               >
-                <VideoPlayerMock />
+                <VideoPlayer videoId={videoId} onReady={(e) => setPlayerRef(e.target)} />
               </div>
 
               {/* Horizontal Resizer (Vertical Drag) */}
@@ -166,7 +197,7 @@ export default function StudioPage() {
                 style={{ flex: (1 - videoFraction) * 100 }} 
                 className="rounded-xl border border-border overflow-hidden min-h-[150px]"
               >
-                {showFlashcards ? <FlashcardDeckMock toggle={() => setShowFlashcards(false)} /> : <CanvasMock toggle={() => setShowFlashcards(true)} />}
+                {showFlashcards ? <FlashcardDeckMock toggle={() => setShowFlashcards(false)} topic={persona?.subtitle || "Python Memory Management"} videoId={videoId} playerRef={playerRef} /> : <CanvasMock toggle={() => setShowFlashcards(true)} />}
               </div>
             </div>
           )}
@@ -197,7 +228,7 @@ export default function StudioPage() {
               )}
             >
               <Sparkles className={cn("w-4 h-4", sidebarTab === "ai" ? "text-fg-accent" : "text-muted-foreground")} />
-              Oreo AI
+              Atlas
             </button>
             <button 
               onClick={() => setSidebarTab("roadmap")}
@@ -215,14 +246,54 @@ export default function StudioPage() {
 
           {/* Sidebar Content */}
           <div className="flex-1 overflow-y-auto">
-            {sidebarTab === "ai" ? <SidebarAIMock /> : <SidebarRoadmapMock />}
+            {sidebarTab === "ai" ? <SidebarAIMock onPersonaGenerated={handlePersonaGenerated} playerRef={playerRef} videoId={videoId} /> : (
+              <div className="flex flex-col h-full overflow-hidden w-full relative">
+                {isGeneratingRoadmap && (
+                  <div className="absolute inset-0 bg-canvas/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-2 text-accent-primary">
+                      <Sparkles className="w-6 h-6 animate-pulse" />
+                      <span className="text-xs font-bold">Generating...</span>
+                    </div>
+                  </div>
+                )}
+                {roadmap.length > 0 ? (
+                  <RoadmapExplorer roadmap={roadmap} />
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
+                    <Sparkles className="w-8 h-8 mb-4 opacity-50" />
+                    <p className="text-sm">Start an interview with Atlas to generate your customized learning roadmap.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
           </>
       ) : activeWorkspaceTab === "roadmap" ? (
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <RoadmapExplorer roadmap={MOCK_PYTHON_ROADMAP} />
+        <div className="flex-1 overflow-hidden flex flex-col relative">
+          {isGeneratingRoadmap && (
+            <div className="absolute inset-0 bg-canvas/80 backdrop-blur-sm z-10 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2 text-accent-primary">
+                <Sparkles className="w-8 h-8 animate-pulse" />
+                <span className="text-sm font-bold">Generating Roadmap...</span>
+              </div>
+            </div>
+          )}
+          {roadmap.length > 0 ? (
+            <RoadmapExplorer roadmap={roadmap} />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
+              <Sparkles className="w-8 h-8 mb-4 opacity-50" />
+              <p className="text-sm font-medium">Start an interview with Atlas to generate your customized learning roadmap.</p>
+              <button 
+                onClick={() => { setSidebarTab("ai"); setActiveWorkspaceTab("lab"); }}
+                className="mt-4 px-4 py-2 bg-accent-primary text-black font-bold rounded-lg hover:bg-accent-primary/90 transition-colors"
+              >
+                Chat with Atlas
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -235,25 +306,26 @@ export default function StudioPage() {
 
 // --- MOCK COMPONENTS ---
 
-function VideoPlayerMock() {
+function VideoPlayer({ videoId, onReady }: { videoId: string, onReady: (e: any) => void }) {
+  const opts = {
+    height: '100%',
+    width: '100%',
+    playerVars: {
+      autoplay: 0,
+      modestbranding: 1,
+      rel: 0,
+    },
+  };
+
   return (
-    <div className="w-full h-full relative bg-black flex flex-col">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <PlayCircle className="w-16 h-16 text-white/50 hover:text-white transition-colors cursor-pointer shadow-xl rounded-full" />
-      </div>
-      <div className="mt-auto bg-gradient-to-t from-black/80 to-transparent p-4">
-        <div className="flex items-center gap-4 text-white">
-          <PlayCircle className="w-5 h-5 cursor-pointer" />
-          <div className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden cursor-pointer">
-            <div className="w-[30%] h-full bg-accent-primary" />
-          </div>
-          <span className="text-xs font-mono">03:42 / 12:00</span>
-          <Volume2 className="w-4 h-4 cursor-pointer" />
-          <Settings className="w-4 h-4 cursor-pointer" />
-          <Maximize2 className="w-4 h-4 cursor-pointer" />
-        </div>
-        <h3 className="text-sm font-bold text-white mt-3">Linked Lists: Insertion and Deletion Walkthrough</h3>
-      </div>
+    <div className="w-full h-full relative bg-black flex flex-col group">
+      <YouTube 
+        videoId={videoId} 
+        opts={opts} 
+        onReady={onReady} 
+        className="w-full h-full absolute inset-0"
+        iframeClassName="w-full h-full"
+      />
     </div>
   );
 }
@@ -283,48 +355,268 @@ function CanvasMock({ toggle }: { toggle: () => void }) {
   );
 }
 
-function FlashcardDeckMock({ toggle }: { toggle: () => void }) {
+function FlashcardDeckMock({ toggle, topic, videoId, playerRef }: { toggle: () => void, topic?: string, videoId?: string, playerRef?: any }) {
+  const [flashcards, setFlashcards] = useState<any[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  React.useEffect(() => {
+    if (!topic) return;
+    const fetchFlashcards = async () => {
+      setIsGenerating(true);
+      try {
+        let currentTime = undefined;
+        if (playerRef) {
+          try {
+            currentTime = await playerRef.getCurrentTime();
+          } catch (e) {}
+        }
+        
+        const response = await ApiClient.post('/orchestration/flashcards', {
+          topic: topic,
+          count: 3,
+          video_id: videoId,
+          video_timestamp: currentTime ? Math.round(currentTime) : undefined
+        });
+        if (response.flashcards) {
+          setFlashcards(response.flashcards);
+        }
+      } catch (err) {
+        console.error("Failed to fetch flashcards:", err);
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+    fetchFlashcards();
+  }, [topic]);
+
+  const currentCard = flashcards[currentIndex];
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev + 1) % flashcards.length);
+  };
+
   return (
     <div className="w-full h-full bg-surface relative flex flex-col items-center justify-center p-8">
-      <button onClick={toggle} className="absolute top-4 right-4 px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs font-bold hover:bg-white/5 flex items-center gap-2">
+      <button onClick={toggle} className="absolute top-4 right-4 px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs font-bold hover:bg-white/5 flex items-center gap-2 z-20">
         <LayoutGrid className="w-3.5 h-3.5" /> View Mindmap
       </button>
 
-      <div className="relative w-full max-w-[400px] h-[250px]">
-        {/* Stack effect */}
-        <div className="absolute inset-0 translate-y-4 scale-90 bg-elevated rounded-2xl border border-border/50" />
-        <div className="absolute inset-0 translate-y-2 scale-95 bg-elevated rounded-2xl border border-border" />
-        <div className="absolute inset-0 bg-canvas rounded-2xl border-2 border-border shadow-xl flex flex-col p-6 items-center justify-center text-center cursor-pointer hover:border-accent-primary transition-colors">
-          <span className="text-accent-primary text-xs font-bold tracking-widest uppercase mb-4">Front</span>
-          <h2 className="text-xl font-bold text-foreground">{MOCK_FLASHCARDS[0].front}</h2>
-          <p className="text-xs text-muted-foreground mt-6">Tap to flip</p>
+      {isGenerating ? (
+        <div className="flex flex-col items-center gap-2 text-accent-primary">
+          <Sparkles className="w-8 h-8 animate-pulse" />
+          <span className="text-sm font-bold">Generating Flashcards...</span>
         </div>
-      </div>
+      ) : flashcards.length === 0 ? (
+        <div className="flex flex-col items-center text-muted-foreground max-w-sm text-center">
+          <Sparkles className="w-8 h-8 mb-4 opacity-50" />
+          <p className="text-sm">Complete your Atlas interview to generate personalized flashcards for this topic.</p>
+        </div>
+      ) : (
+        <div className="relative w-full max-w-[400px] h-[250px] group">
+          {/* Stack effect */}
+          <div className="absolute inset-0 translate-y-4 scale-90 bg-elevated rounded-2xl border border-border/50" />
+          <div className="absolute inset-0 translate-y-2 scale-95 bg-elevated rounded-2xl border border-border" />
+          <div 
+            className="absolute inset-0 bg-canvas rounded-2xl border-2 border-border shadow-xl flex flex-col p-6 items-center justify-center text-center cursor-pointer hover:border-accent-primary transition-colors"
+          >
+            <span className="text-accent-primary text-xs font-bold tracking-widest uppercase mb-4">Front</span>
+            <h2 className="text-xl font-bold text-foreground">{currentCard?.front}</h2>
+            
+            {/* The back of the card on hover */}
+            <div className="absolute inset-0 bg-canvas rounded-2xl p-6 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-center transition-opacity duration-300">
+               <span className="text-accent-primary text-xs font-bold tracking-widest uppercase mb-4">Back</span>
+               <h2 className="text-sm font-medium text-muted-foreground">{currentCard?.back}</h2>
+            </div>
+            
+            <button 
+              onClick={handleNext}
+              className="absolute bottom-4 right-4 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs font-bold hover:bg-white/5 z-30"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function SidebarAIMock() {
+function SidebarAIMock({ 
+  onPersonaGenerated, 
+  playerRef, 
+  videoId 
+}: { 
+  onPersonaGenerated?: (persona: any) => void,
+  playerRef?: any,
+  videoId?: string
+}) {
+  const [messages, setMessages] = useState<{role: 'user' | 'assistant', content: string, type?: 'explain'}[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [options, setOptions] = useState<string[]>([]);
+  const [historyStr, setHistoryStr] = useState("No prior history.");
+  const [internalState, setInternalState] = useState<any>(null);
+
+  const sendRequest = async (userMsg: string, isExplainer: boolean = false) => {
+    if (isLoading) return;
+    setMessages(prev => [...prev, { role: 'user', content: userMsg, type: isExplainer ? 'explain' : undefined }]);
+    setIsLoading(true);
+    setOptions([]);
+
+    try {
+      if (isExplainer && playerRef && videoId) {
+        // AI Video Transcript Explainer Feature
+        let currentTime = 0;
+        try {
+           currentTime = await playerRef.getCurrentTime();
+           // Pause the video while AI explains
+           playerRef.pauseVideo();
+        } catch (e) { console.error("Could not get time", e); }
+
+        const res = await ApiClient.post('/orchestration/canvas-explain', {
+           video_id: videoId,
+           video_timestamp: Math.round(currentTime),
+           question: userMsg
+        });
+        setMessages(prev => [...prev, { role: 'assistant', content: res.explanation, type: 'explain' }]);
+      } else {
+        // Standard Interview Profile
+        const res = await ApiClient.post('/orchestration/interview', { 
+          message: userMsg,
+          history: historyStr
+        });
+        setMessages(prev => [...prev, { role: 'assistant', content: res.replyToUser }]);
+        setOptions(res.options || []);
+        setInternalState(res.internalState);
+        
+        setHistoryStr(prev => `${prev}\nUser: ${userMsg}\nAtlas: ${res.replyToUser}`);
+      }
+    } catch (err) {
+      console.error(err);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I'm having trouble connecting right now." }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+    const msg = input.trim();
+    setInput("");
+    sendRequest(msg);
+  };
+
+  const handleOptionClick = async (opt: string) => {
+    if (opt.endsWith('➔') && internalState?.confidenceScore >= 80) {
+      setIsLoading(true);
+      setMessages(prev => [...prev, { role: 'user', content: opt }, { role: 'assistant', content: "Generating your personalized curriculum..." }]);
+      setOptions([]);
+      
+      try {
+        const personaRes = await ApiClient.post('/orchestration/interview/complete', internalState.currentInferredPersona);
+        if (onPersonaGenerated) {
+          onPersonaGenerated(personaRes);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      sendRequest(opt);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full relative">
-      <div className="flex-1 p-4 flex flex-col items-center justify-center text-center pb-24">
-        <Sparkles className="w-8 h-8 text-muted-foreground mb-3 opacity-50" />
-        <h3 className="text-sm font-bold text-foreground">Oreo AI is Listening</h3>
-        <p className="text-xs text-muted-foreground mt-1">This is an embedded instance of the Micro-Interview chat. Drag flashcards or canvas nodes here to ask questions about them.</p>
+      <div className="flex-1 p-4 flex flex-col pb-24 overflow-y-auto">
+        {messages.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <Sparkles className="w-8 h-8 text-muted-foreground mb-3 opacity-50" />
+            <h3 className="text-sm font-bold text-foreground">Atlas is Listening</h3>
+            <p className="text-xs text-muted-foreground mt-1">This is an embedded instance of the Micro-Interview chat. Ask me anything.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((msg, i) => (
+              <div key={i} className={cn("flex w-full", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                <div className={cn(
+                  "px-4 py-2 rounded-2xl max-w-[85%] text-[13px] leading-relaxed",
+                  msg.role === 'user' 
+                    ? "bg-accent-primary text-black font-medium"
+                    : "bg-surface border border-border text-foreground",
+                  msg.type === 'explain' && msg.role === 'assistant' && "border-accent-emerald/50 bg-accent-emerald/5"
+                )}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            
+            {!isLoading && options.length > 0 && (
+              <div className="flex flex-col gap-2 w-full pl-2">
+                {options.map((opt, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => handleOptionClick(opt)}
+                    className={cn(
+                      "self-start text-[12px] px-3 py-1.5 rounded-full border transition-colors font-medium max-w-[85%] text-left",
+                      opt.endsWith('➔') 
+                        ? "bg-accent-emerald/10 border-accent-emerald/50 text-accent-emerald hover:bg-accent-emerald hover:text-black"
+                        : "bg-canvas border-border/50 text-muted-foreground hover:border-fg-accent hover:text-foreground"
+                    )}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {isLoading && (
+              <div className="flex w-full justify-start">
+                <div className="px-4 py-2 rounded-2xl bg-surface border border-border text-muted-foreground text-[13px]">
+                  Thinking...
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Input Bar */}
       <div className="absolute bottom-0 left-0 right-0 p-3 bg-sidebar border-t border-border/50">
-        <div className="flex items-center gap-2 bg-surface border border-border/50 rounded-full px-4 py-2">
+        <div className="flex items-center gap-2 bg-surface border border-border/50 rounded-full px-4 py-2 focus-within:border-accent-primary transition-colors">
           <button className="text-muted-foreground hover:text-foreground transition-colors">
             <Plus className="w-4 h-4" />
           </button>
           <input 
             type="text" 
-            placeholder="Ask Oreo AI..." 
+            placeholder="Ask Atlas (or about video)..." 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground"
           />
-          <button className="w-6 h-6 rounded-full bg-accent-primary flex items-center justify-center text-black shrink-0">
+          <button 
+            onClick={() => {
+               if (!input.trim()) return;
+               const msg = input.trim();
+               setInput("");
+               sendRequest(msg, true); // True = Explainer Mode
+            }}
+            disabled={isLoading || !input.trim()}
+            title="Ask about current video timestamp"
+            className="w-6 h-6 rounded-full bg-accent-emerald disabled:bg-surface disabled:text-muted-foreground flex items-center justify-center text-black shrink-0 transition-colors mr-1"
+          >
+            <PlayCircle className="w-3.5 h-3.5 font-bold" />
+          </button>
+          <button 
+            onClick={handleSend}
+            disabled={isLoading || !input.trim()}
+            title="Standard Interview"
+            className="w-6 h-6 rounded-full bg-accent-primary disabled:bg-surface disabled:text-muted-foreground flex items-center justify-center text-black shrink-0 transition-colors"
+          >
             <ArrowUp className="w-3.5 h-3.5 font-bold" />
           </button>
         </div>
@@ -333,10 +625,4 @@ function SidebarAIMock() {
   );
 }
 
-function SidebarRoadmapMock() {
-  return (
-    <div className="flex flex-col h-full overflow-hidden w-full">
-      <RoadmapExplorer roadmap={MOCK_PYTHON_ROADMAP} />
-    </div>
-  );
-}
+// function SidebarRoadmapMock() { ... } // Replaced inline

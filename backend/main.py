@@ -22,9 +22,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import auth, users, onboarding, dashboard, curator, reflection, resources, chat
-from app.api import progress
+from app.api import progress, catalog, workspaces, roadmap, mindmap, orchestration
 from app.db.database import get_db
 from app.utils.config import settings
+from app.utils.llm_manager import llm_manager
 from app.utils.exceptions import (
     DuplicateEmailError,
     InvalidCredentialsError,
@@ -45,14 +46,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
     # Startup validation
-    if not settings.GEMINI_API_KEY:
-        logger.warning("GEMINI_API_KEY is not set — AI agents will use fallback responses")
+    if not llm_manager.keys:
+        logger.warning("No GEMINI_KEYs are set — AI agents will use fallback responses")
     if settings.JWT_SECRET_KEY == "your-super-secret-key-change-this":
         logger.error("JWT_SECRET_KEY is using default value — CHANGE THIS IN PRODUCTION")
-
-    # Configure Gemini AI globally (once)
-    if settings.GEMINI_API_KEY:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
 
     logger.info(f"Starting {settings.APP_NAME}...")
     logger.info("Gemini AI configured. Database and agents initialized.")
@@ -115,6 +112,11 @@ app.include_router(reflection.router)
 app.include_router(resources.router)
 app.include_router(chat.router)
 app.include_router(progress.router)
+app.include_router(catalog.router)
+app.include_router(workspaces.router)
+app.include_router(roadmap.router)
+app.include_router(mindmap.router)
+app.include_router(orchestration.router)
 
 
 @app.get("/", tags=["Health"])
@@ -139,7 +141,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "database": db_status,
-        "gemini_api": "configured" if settings.GEMINI_API_KEY else "missing",
+        "gemini_api": "configured" if llm_manager.keys else "missing",
         "agents": [
             "Identity Agent",
             "Growth Planner",

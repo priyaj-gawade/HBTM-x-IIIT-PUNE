@@ -16,8 +16,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 1440
 
-    # Gemini AI
-    GEMINI_API_KEY: str = ""
+    # Gemini AI Keys
+    GEMINI_KEY_1: str = ""
+    GEMINI_KEY_2: str = ""
+    GEMINI_KEY_3: str = ""
 
     # App & Security
     APP_NAME: str = "Atlas AI"
@@ -27,6 +29,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 @lru_cache()

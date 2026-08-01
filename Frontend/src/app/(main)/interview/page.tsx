@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { 
   Image as ImageIcon, 
@@ -16,13 +17,27 @@ import {
   RotateCcw,
   MoreHorizontal
 } from "lucide-react";
-import { MOCK_CHAT_MESSAGES } from "@/lib/mock-data";
+
 import { cn } from "@/lib/utils";
+import { ApiClient } from "@/lib/api-client";
 
 export default function InterviewPage() {
-  const [messages, setMessages] = useState(MOCK_CHAT_MESSAGES);
+  const router = useRouter();
+  const [messages, setMessages] = useState<{id: string, sender: string, text: string, options?: string[]}[]>([]);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAskingPlan, setIsAskingPlan] = useState(false);
+  const [inferredPersona, setInferredPersona] = useState<any>(null);
+  const initRef = useRef(false);
+
+  // Initialize conversation
+  useEffect(() => {
+    if (!initRef.current) {
+      initRef.current = true;
+      handleSend("INIT", true);
+    }
+  }, []);
 
   // Auto-scroll to bottom on new message
   useEffect(() => {
@@ -31,31 +46,94 @@ export default function InterviewPage() {
     }
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async (textOverride?: string, isInit: boolean = false) => {
+    const userInput = textOverride ?? input.trim();
+    if (!userInput || isLoading) return;
 
-    const userMsg = {
-      id: `u-${Date.now()}`,
-      sender: "USER",
-      text: input,
-      options: undefined
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+    if (!isInit) {
+      setMessages((prev) => [...prev, {
+        id: `u-${Date.now()}`,
+        sender: "USER",
+        text: userInput,
+        options: undefined
+      }]);
+    }
+    
     setInput("");
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    if (isAskingPlan && !isInit) {
+      const affirmativeWords = ["yes", "y", "sure", "ok", "yeah", "yep", "proceed", "create", "plan"];
+      const isAffirmative = affirmativeWords.some(w => userInput.toLowerCase().includes(w));
+
+      if (isAffirmative && inferredPersona) {
+        try {
+          const personaRes = await ApiClient.post('/orchestration/interview/complete', inferredPersona);
+          await ApiClient.post('/workspaces', {
+            title: personaRes.title,
+            data: personaRes
+          });
+          router.push('/studio');
+        } catch (err) {
+          console.error(err);
+          setIsLoading(false);
+        }
+        return; // Stop here, redirecting
+      } else {
+        setIsAskingPlan(false);
+        // continue chatting with this negative response
+      }
+    }
+
+    try {
+      const historyStr = messages.map(m => `${m.sender}: ${m.text}`).join("\n");
+      
+      const res = await ApiClient.post('/orchestration/interview', { 
+        message: isInit ? "Hello, let's start the onboarding interview." : userInput,
+        history: historyStr || "No prior history."
+      });
+      
       setMessages((prev) => [
         ...prev, 
         {
           id: `ai-${Date.now()}`,
           sender: "AI",
-          text: "I can certainly help you with that! Let's get started. Would you like a brief overview or should we dive straight into an exercise?",
-          options: ["Give me an overview", "Let's do an exercise"]
+          text: res.replyToUser,
+          options: res.options
         }
       ]);
-    }, 1000);
+
+      const isComplete = res.internalState?.confidenceScore >= 80 || (res.options && res.options.some((o: string) => o.endsWith('➔')));
+      
+      if (isComplete && res.internalState?.currentInferredPersona && !isAskingPlan) {
+        setInferredPersona(res.internalState.currentInferredPersona);
+        setIsAskingPlan(true);
+        setMessages((prev) => [
+          ...prev, 
+          {
+            id: `ai-plan-${Date.now()}`,
+            sender: "AI",
+            text: "I have enough information! Do you want to create a learning plan now?",
+            options: ["Yes, proceed", "No, let's keep chatting"]
+          }
+        ]);
+      }
+
+    } catch (err) {
+      console.error(err);
+      if (!isInit) {
+        setMessages((prev) => [
+          ...prev, 
+          {
+            id: `ai-${Date.now()}`,
+            sender: "AI",
+            text: "I'm having trouble connecting right now. Please try again later.",
+          }
+        ]);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -69,7 +147,7 @@ export default function InterviewPage() {
     <div className="flex flex-col h-[calc(100vh-64px)] md:h-screen w-full relative">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border/50 bg-activity-bar">
-        <h1 className="font-display font-bold text-foreground">Oreo AI Tutor</h1>
+        <h1 className="font-display font-bold text-foreground">Atlas Tutor</h1>
       </div>
 
       {/* Main Chat Thread */}
@@ -118,7 +196,7 @@ export default function InterviewPage() {
                             key={opt}
                             onClick={() => {
                               setInput(opt);
-                              setTimeout(handleSend, 50);
+                              setTimeout(() => handleSend(opt), 50);
                             }}
                             className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-white/5 transition-colors text-foreground"
                           >
@@ -132,6 +210,13 @@ export default function InterviewPage() {
               </div>
             );
           })}
+          {isLoading && (
+            <div className="flex w-full justify-start">
+              <div className="max-w-[100%] sm:max-w-[85%] pr-4">
+                <div className="text-muted-foreground text-sm italic">Thinking...</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -155,7 +240,7 @@ export default function InterviewPage() {
 
             {input.trim().length > 0 ? (
               <button 
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 className="w-8 h-8 ml-1 rounded-full bg-primary flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0"
               >
                 <ArrowUp className="w-4 h-4 text-background" />
@@ -173,7 +258,7 @@ export default function InterviewPage() {
           </div>
           
           <div className="text-center mt-3">
-            <span className="text-[11px] text-muted-foreground">Oreo AI Tutor can make mistakes. Check important info.</span>
+            <span className="text-[11px] text-muted-foreground">Atlas Tutor can make mistakes. Check important info.</span>
           </div>
         </div>
       </div>

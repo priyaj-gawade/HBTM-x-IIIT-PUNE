@@ -10,6 +10,8 @@ from app.schemas.auth import AuthResponse, LoginRequest, SignupRequest, UserResp
 from app.utils.exceptions import DuplicateEmailError, InvalidCredentialsError
 from app.utils.security import create_access_token, hash_password, verify_password
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,6 +55,42 @@ class AuthService:
 
         # Log without PII
         logger.info(f"User logged in: user_id={user.id}")
+        return AuthResponse(token=token, user_id=str(user.id))
+
+    async def google_login(self, db: AsyncSession, access_token: str) -> AuthResponse:
+        """Authenticate user via Google access token, auto-register if missing."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            if resp.status_code != 200:
+                raise InvalidCredentialsError("Invalid Google access token")
+            
+            user_info = resp.json()
+            email = user_info.get("email")
+            name = user_info.get("name", "Google User")
+
+            if not email:
+                raise InvalidCredentialsError("Google account has no email")
+
+        # Find or create user
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            user = User(
+                name=name,
+                email=email,
+                password_hash=hash_password(access_token[:32]), # Randomish hash for oauth users
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            logger.info(f"New Google user registered: user_id={user.id}")
+
+        token = create_access_token(str(user.id))
+        logger.info(f"Google user logged in: user_id={user.id}")
         return AuthResponse(token=token, user_id=str(user.id))
 
     async def get_me(self, user: User) -> UserResponse:

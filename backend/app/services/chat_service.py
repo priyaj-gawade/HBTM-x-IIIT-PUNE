@@ -13,6 +13,7 @@ from app.models.user import User
 from app.prompts.chat_prompts import CHAT_SYSTEM_PROMPT, CHAT_USER_PROMPT
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.embedding_service import embedding_service
+from app.utils.llm_manager import llm_manager
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,8 @@ class ChatService:
     """Business logic for AI chat conversations."""
 
     def __init__(self):
-        self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=CHAT_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=0.8,
-            ),
+        self.generation_config = genai.GenerationConfig(
+            temperature=0.8,
         )
 
     async def chat(
@@ -72,6 +69,8 @@ class ChatService:
         except Exception as e:
             logger.warning(f"Memory retrieval for chat failed, continuing: {e}")
 
+        roadmap_str = f"Current Roadmap Context:\n{data.roadmap_context}" if data.roadmap_context else ""
+
         try:
             prompt = CHAT_USER_PROMPT.format(
                 goal=profile.goal if profile else "Not specified",
@@ -79,12 +78,16 @@ class ChatService:
                 streak=streak,
                 recent_mood=recent_mood,
                 memory_context=memory_context,
+                roadmap_context=roadmap_str,
                 message=data.message,
             )
 
-            # Async call with 30s timeout
-            response = await self.model.generate_content_async(
-                prompt,
+            # Async call with 30s timeout via Rotational LLM Manager
+            response = await llm_manager.generate_content_async(
+                prompt=prompt,
+                model_name="gemini-3.1-flash-lite",
+                system_instruction=CHAT_SYSTEM_PROMPT,
+                generation_config=self.generation_config,
                 request_options={"timeout": 30},
             )
             reply = response.text

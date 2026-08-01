@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MOCK_WORKSPACES } from "@/lib/mock-data";
+import { ApiClient } from "@/lib/api-client";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -27,6 +28,18 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      ApiClient.get('/workspaces').then(data => {
+        setWorkspaces(data.length > 0 ? data : MOCK_WORKSPACES); // Fallback to mock if empty
+      }).catch(err => {
+        console.error("Failed to fetch workspaces:", err);
+        setWorkspaces(MOCK_WORKSPACES);
+      });
+    }
+  }, [isOpen]);
 
   return (
     <div className="flex z-50">
@@ -92,18 +105,22 @@ export function Sidebar() {
           
           <div className="flex items-center justify-between p-4 border-b border-border/50">
             <h2 className="text-foreground font-bold text-sm font-display">Learning Spaces</h2>
-            <button 
+            <Link 
+              href="/interview"
               className="w-6 h-6 rounded-md bg-transparent hover:bg-white/10 flex items-center justify-center transition-colors group"
               title="New Workspace"
+              onClick={() => setIsOpen(false)}
             >
               <Plus className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
-            </button>
+            </Link>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {MOCK_WORKSPACES.map((workspace) => (
-              <div 
+            {workspaces.map((workspace) => (
+              <Link 
                 key={workspace.id}
+                href="/studio"
+                onClick={() => setIsOpen(false)}
                 className="group flex flex-col p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 cursor-pointer transition-colors"
               >
                 <div className="flex justify-between items-center mb-1">
@@ -121,7 +138,7 @@ export function Sidebar() {
                     style={{ width: `${workspace.progress}%` }}
                   />
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 

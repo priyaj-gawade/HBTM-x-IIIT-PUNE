@@ -33,6 +33,10 @@ class DashboardService:
         )
         profile = result.scalar_one_or_none()
 
+        if not profile:
+            from app.utils.exceptions import ProfileNotFoundError
+            raise ProfileNotFoundError("Workspace not created. Please complete the interview.")
+
         # Get streak from habits
         habit_result = await db.execute(
             select(func.max(Habit.current_streak)).where(Habit.user_id == user.id)

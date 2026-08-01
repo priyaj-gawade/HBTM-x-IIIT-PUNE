@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Search, SearchX, Plus } from "lucide-react";
-import { MOCK_HUB_COURSES } from "@/lib/mock-data";
+import React, { useState, useMemo, useEffect } from "react";
+import { Search, SearchX, Plus, Loader2 } from "lucide-react";
+import { CourseCatalogEntry } from "@/lib/mock-data";
+import { ApiClient } from "@/lib/api-client";
 import { CourseCard } from "@/components/hub/course-card";
 import { useRouter } from "next/navigation";
 
@@ -12,20 +13,36 @@ export default function KnowledgeHubPage() {
 
   const isSearching = searchQuery.trim().length > 0;
 
+  const [allCourses, setAllCourses] = useState<CourseCatalogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    async function fetchCourses() {
+      try {
+        const data = await ApiClient.get('/catalog/all');
+        setAllCourses(data);
+      } catch (err) {
+        console.error("Failed to fetch courses:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchCourses();
+  }, []);
+
   // Filter logic
   const filteredCourses = useMemo(() => {
-    if (!isSearching) return MOCK_HUB_COURSES;
+    if (!isSearching) return allCourses;
     const lowerQ = searchQuery.toLowerCase();
-    return MOCK_HUB_COURSES.filter(c => 
+    return allCourses.filter(c => 
       c.title.toLowerCase().includes(lowerQ) ||
       c.category.toLowerCase().includes(lowerQ) ||
       c.tags.some(t => t.toLowerCase().includes(lowerQ))
     );
-  }, [searchQuery, isSearching]);
+  }, [searchQuery, isSearching, allCourses]);
 
   // We'll mock recommendations as the first 3 courses just for the UI
-  const recommendations = MOCK_HUB_COURSES.slice(0, 3);
-  const allCourses = MOCK_HUB_COURSES;
+  const recommendations = allCourses.slice(0, 3);
 
   return (
     <div className="w-full h-full flex flex-col bg-canvas overflow-y-auto">
@@ -56,7 +73,11 @@ export default function KnowledgeHubPage() {
 
       {/* Content Area */}
       <div className="flex-1 px-6 py-10 md:px-12">
-        {filteredCourses.length === 0 ? (
+        {isLoading ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-accent-primary" />
+          </div>
+        ) : filteredCourses.length === 0 ? (
           /* Empty State */
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 rounded-full bg-surface border border-border/50 flex items-center justify-center mb-6">

@@ -32,6 +32,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleLoginRequest(BaseModel):
+    """POST /api/auth/google request body."""
+    access_token: str
+
+
 class AuthResponse(BaseModel):
     """Auth response with JWT token."""
     token: str

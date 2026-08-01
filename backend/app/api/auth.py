@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
 from app.models.user import User
-from app.schemas.auth import AuthResponse, LoginRequest, SignupRequest, UserResponse
+from app.schemas.auth import AuthResponse, LoginRequest, SignupRequest, UserResponse, GoogleLoginRequest
 from app.services.auth_service import auth_service
 from app.utils.security import get_current_user
 
@@ -38,6 +38,14 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     Response: { "token": "", "user_id": "" }
     """
     return await auth_service.login(db, data)
+
+
+@router.post("/google", response_model=AuthResponse)
+async def google_login(data: GoogleLoginRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Authenticate user with Google access token.
+    """
+    return await auth_service.google_login(db, data.access_token)
 
 
 @router.get("/me", response_model=UserResponse)

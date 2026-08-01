@@ -21,7 +21,11 @@ services:
     build: .
     container_name: atlas_backend
     ports:
-      - "8000:8000"
+      - "8080:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://atlas_user:atlas_password@db:5432/atlas
       REDIS_URL: redis://redis:6379

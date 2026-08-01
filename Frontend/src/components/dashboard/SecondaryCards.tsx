@@ -1,11 +1,19 @@
 import React from "react";
 import { AlertCircle, Code, History, PlayCircle, CheckCircle, Circle, ArrowRight } from "lucide-react";
 
-export function NeedsAttentionCard() {
-  const items = [
+export function NeedsAttentionCard({ insights = [] }: { insights?: any[] }) {
+  const defaultItems = [
     { title: "Module Quiz Pending", subtitle: "Data Science Basics", type: "warning", icon: AlertCircle, color: "text-[#F59E0B]" },
     { title: "Review Suggested", subtitle: "Pandas DataFrames", type: "history", icon: History, color: "text-[#878787]" }
   ];
+
+  const displayItems = insights.length > 0 ? insights.map((insight, idx) => ({
+    title: insight.category === "warning" ? "Needs Attention" : "Insight",
+    subtitle: insight.text,
+    type: insight.category,
+    icon: insight.category === "warning" ? AlertCircle : CheckCircle,
+    color: insight.category === "warning" ? "text-[#F59E0B]" : "text-[#10B981]"
+  })) : defaultItems;
 
   return (
     <div className="bg-card rounded-2xl p-8 h-full border-none flex flex-col">
@@ -13,7 +21,7 @@ export function NeedsAttentionCard() {
         Needs Attention
       </h2>
       <div className="flex flex-col gap-6 mt-auto">
-        {items.map((item, idx) => {
+        {displayItems.slice(0, 3).map((item, idx) => {
           const Icon = item.icon;
           return (
             <div key={idx} className="flex items-center gap-4">
@@ -30,8 +38,10 @@ export function NeedsAttentionCard() {
   );
 }
 
-export function RoadmapPreviewCard() {
-  const nodes = [
+export function RoadmapPreviewCard({ progress }: { progress?: any }) {
+  // If progress is provided from the backend, we can dynamically build the nodes. 
+  // For now, if no progress nodes are passed, use the fallback.
+  const nodes = progress?.nodes || [
     { title: "Python Basics", status: "completed", icon: CheckCircle, color: "text-[#10B981]" },
     { title: "Data Analysis", status: "active", icon: PlayCircle, color: "text-ring" },
     { title: "Machine Learning", status: "locked", icon: Circle, color: "text-[#6B6B6B]" },

@@ -1,6 +1,6 @@
 import React from "react";
 
-export function GreetingHeroCard() {
+export function GreetingHeroCard({ userName = "User" }: { userName?: string }) {
   return (
     <div className="relative bg-card rounded-2xl px-6 py-4 flex flex-row items-stretch overflow-hidden">
       
@@ -26,7 +26,7 @@ export function GreetingHeroCard() {
       {/* Greeting Section (65%) */}
       <div className="w-[65%] flex flex-col justify-center relative z-10">
         <h1 className="font-display text-2xl font-bold text-foreground">
-          Good Evening, Priyaj
+          Good Evening, {userName}
         </h1>
         <div className="h-2" />
         <p className="font-sans text-sm text-muted-foreground leading-relaxed">

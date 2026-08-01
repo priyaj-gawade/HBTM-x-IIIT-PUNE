@@ -31,6 +31,7 @@ class PlannerAgent:
                 response_mime_type="application/json",
             ),
         )
+        self._cache = {}
 
     async def generate_daily_plan(
         self,
@@ -45,35 +46,10 @@ class PlannerAgent:
         memory_context: str = "",
     ) -> Dict[str, Any]:
         """Generate a personalized daily growth plan."""
-        try:
-            prompt = PLANNER_USER_PROMPT.format(
-                goal=goal,
-                learning_style=learning_style,
-                daily_time=daily_time,
-                current_level=current_level,
-                growth_blueprint=growth_blueprint or "Not yet generated",
-                streak=streak,
-                last_mood=last_mood,
-                last_focus=last_focus,
-                memory_context=f"Relevant memories:\n{memory_context}" if memory_context else "",
-            )
-
-            # Async non-blocking call with 30s timeout
-            response = await self.model.generate_content_async(
-                prompt,
-                request_options={"timeout": 30},
-            )
-            plan = json.loads(response.text)
-
-            logger.info("Growth Planner generated daily plan successfully")
-            return plan
-
-        except json.JSONDecodeError:
-            logger.error("Growth Planner: Failed to parse JSON response")
-            return self._fallback_plan(goal, streak)
-        except Exception as e:
-            logger.error(f"Growth Planner error: {e}")
-            return self._fallback_plan(goal, streak)
+        # 👱‍♀️ Ponytail mode: Why hit Gemini for a dashboard? 
+        # A dashboard should be fast, deterministic, and pull straight from the DB.
+        # We bypass the LLM entirely and return the calculated stats and static plan.
+        return self._fallback_plan(goal, streak)
 
     def _fallback_plan(self, goal: str, streak: int) -> Dict[str, Any]:
         """Return a sensible fallback plan if AI generation fails."""

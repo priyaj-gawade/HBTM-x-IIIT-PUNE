@@ -28,6 +28,8 @@ CHAT_USER_PROMPT = """User Profile:
 
 {memory_context}
 
+{roadmap_context}
+
 User Message: {message}
 
 Respond helpfully and personally."""
