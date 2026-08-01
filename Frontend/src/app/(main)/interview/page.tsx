@@ -71,14 +71,25 @@ export default function InterviewPage() {
       if (isAffirmative && inferredPersona) {
         try {
           const personaRes = await ApiClient.post('/orchestration/interview/complete', inferredPersona);
+          const activeTopic = inferredPersona.subject || personaRes.subtitle || personaRes.title || "Foundations";
+          
           if (typeof window !== "undefined") {
             localStorage.setItem('atlas_persona', JSON.stringify(personaRes));
+            localStorage.setItem('atlas_active_context', activeTopic);
           }
           try {
-            await ApiClient.post('/workspaces', {
-              title: personaRes.title,
-              data: personaRes
+            const wsRes = await ApiClient.post('/workspaces', {
+              title: personaRes.title || personaRes.subtitle || "My Learning Path",
+              data: {
+                ...personaRes,
+                activeLearningContext: activeTopic,
+                subject: inferredPersona.subject || personaRes.subtitle,
+                domain: inferredPersona.domain || personaRes.domain
+              }
             });
+            if (wsRes && wsRes.id && typeof window !== "undefined") {
+              localStorage.setItem('atlas_active_workspace_id', wsRes.id);
+            }
           } catch (wsErr) {
             console.warn("Workspace save non-critical error:", wsErr);
           }

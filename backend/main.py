@@ -22,7 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import auth, users, onboarding, dashboard, curator, reflection, resources, chat
-from app.api import progress, catalog, workspaces, roadmap, mindmap, orchestration
+from app.api import progress, catalog, workspaces, roadmap, mindmap, orchestration, search
 from app.db.database import get_db
 from app.utils.config import settings
 from app.utils.llm_manager import llm_manager
@@ -124,6 +124,7 @@ app.include_router(workspaces.router)
 app.include_router(roadmap.router)
 app.include_router(mindmap.router)
 app.include_router(orchestration.router)
+app.include_router(search.router)
 
 
 @app.get("/", tags=["Health"])

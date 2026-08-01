@@ -41,13 +41,20 @@ export default function StudioPage() {
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   const [persona, setPersona] = useState<any>(null);
   
-  // Video Player Context
+  // Video Player & Learning Context
   const [playerRef, setPlayerRef] = useState<any>(null);
   const [videoId, setVideoId] = useState("pnWINBJ3-yA"); // Default Python OOP video
+  const [videoTitle, setVideoTitle] = useState("Python Object Oriented Programming");
+  const [activeLearningContext, setActiveLearningContext] = useState("Foundations");
+  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem('atlas_persona');
+      const savedContext = localStorage.getItem('atlas_active_context');
+      if (savedContext) {
+        setActiveLearningContext(savedContext);
+      }
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -59,15 +66,49 @@ export default function StudioPage() {
     }
   }, []);
 
+  const handleSelectActivity = async (topicTitle: string, activityType: string = "Watch Video") => {
+    if (!topicTitle) return;
+    setActiveLearningContext(topicTitle);
+    if (typeof window !== "undefined") {
+      localStorage.setItem('atlas_active_context', topicTitle);
+    }
+
+    if (activityType === "Generate Flashcards") {
+      setShowFlashcards(true);
+    }
+
+    setIsLoadingVideo(true);
+    try {
+      const contextStr = persona?.subtitle || persona?.title || "";
+      const res = await ApiClient.get(`/search/videos?topic=${encodeURIComponent(topicTitle)}&context=${encodeURIComponent(contextStr)}`);
+      if (Array.isArray(res) && res.length > 0) {
+        setVideoId(res[0].id);
+        setVideoTitle(res[0].title || topicTitle);
+      }
+    } catch (e) {
+      console.error("Failed to search videos for topic:", e);
+    } finally {
+      setIsLoadingVideo(false);
+    }
+
+    // Switch to Learning Lab Workspace
+    setActiveWorkspaceTab("lab");
+  };
+
   const handlePersonaGenerated = async (newPersona: any) => {
     setPersona(newPersona);
     setSidebarTab("roadmap");
+    const initialTopic = newPersona.subtitle || newPersona.title || "Python Basics";
+    setActiveLearningContext(initialTopic);
     
+    // Auto-search initial topic video
+    handleSelectActivity(initialTopic, "Watch Video");
+
     // Generate Roadmap based on the new Persona Subject
     setIsGeneratingRoadmap(true);
     try {
       const response = await ApiClient.post('/roadmap/generate', {
-        topic: newPersona.subtitle || newPersona.title || "Python Basics",
+        topic: initialTopic,
         target_role: "Learner",
         experience_level: "Beginner"
       });
@@ -155,9 +196,17 @@ export default function StudioPage() {
 
         <h1 className="font-display font-bold text-[15px] text-foreground">Learning Lab Workspace</h1>
         
-        <div className="ml-3 px-2 py-1 rounded bg-accent-emerald/15 text-accent-emerald text-[11px] font-bold">
-          Active: Linked Lists
+        <div className="ml-3 px-2.5 py-1 rounded-full bg-accent-emerald/15 text-accent-emerald text-[11px] font-bold border border-accent-emerald/30 flex items-center gap-1.5 shadow-sm">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent-emerald animate-pulse" />
+          Active: {activeLearningContext}
         </div>
+
+        {videoTitle && (
+          <div className="ml-3 hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface border border-border/60 text-muted-foreground text-[11px] max-w-sm truncate">
+            <PlayCircle className="w-3 h-3 text-accent-primary shrink-0" />
+            <span className="truncate">{videoTitle}</span>
+          </div>
+        )}
 
         <div className="flex-1" />
 
@@ -182,11 +231,25 @@ export default function StudioPage() {
           {isScrollMode ? (
             // SCROLL MODE
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <div className="h-[400px] sm:h-[50vh] rounded-xl border border-border overflow-hidden shrink-0">
-                <VideoPlayer videoId={videoId} onReady={(e) => setPlayerRef(e.target)} />
+              <div className="h-[400px] sm:h-[50vh] rounded-xl border border-border overflow-hidden shrink-0 relative">
+                <VideoPlayer 
+                  videoId={videoId} 
+                  videoTitle={videoTitle} 
+                  isLoading={isLoadingVideo} 
+                  onReady={(e) => setPlayerRef(e.target)} 
+                />
               </div>
               <div className="h-[550px] sm:h-[60vh] rounded-xl border border-border overflow-hidden shrink-0">
-                {showFlashcards ? <FlashcardDeckMock toggle={() => setShowFlashcards(false)} topic={persona?.subtitle || "Python Memory Management"} videoId={videoId} playerRef={playerRef} /> : <CanvasMock toggle={() => setShowFlashcards(true)} />}
+                {showFlashcards ? (
+                  <FlashcardDeckMock 
+                    toggle={() => setShowFlashcards(false)} 
+                    topic={activeLearningContext || persona?.subtitle || "Python Memory Management"} 
+                    videoId={videoId} 
+                    playerRef={playerRef} 
+                  />
+                ) : (
+                  <CanvasMock toggle={() => setShowFlashcards(true)} />
+                )}
               </div>
             </div>
           ) : (
@@ -194,9 +257,14 @@ export default function StudioPage() {
             <div className="flex-1 flex flex-col p-4 h-full">
               <div 
                 style={{ flex: videoFraction * 100 }} 
-                className="rounded-xl border border-border overflow-hidden min-h-[150px]"
+                className="rounded-xl border border-border overflow-hidden min-h-[150px] relative"
               >
-                <VideoPlayer videoId={videoId} onReady={(e) => setPlayerRef(e.target)} />
+                <VideoPlayer 
+                  videoId={videoId} 
+                  videoTitle={videoTitle} 
+                  isLoading={isLoadingVideo} 
+                  onReady={(e) => setPlayerRef(e.target)} 
+                />
               </div>
 
               {/* Horizontal Resizer (Vertical Drag) */}
@@ -211,7 +279,16 @@ export default function StudioPage() {
                 style={{ flex: (1 - videoFraction) * 100 }} 
                 className="rounded-xl border border-border overflow-hidden min-h-[150px]"
               >
-                {showFlashcards ? <FlashcardDeckMock toggle={() => setShowFlashcards(false)} topic={persona?.subtitle || "Python Memory Management"} videoId={videoId} playerRef={playerRef} /> : <CanvasMock toggle={() => setShowFlashcards(true)} />}
+                {showFlashcards ? (
+                  <FlashcardDeckMock 
+                    toggle={() => setShowFlashcards(false)} 
+                    topic={activeLearningContext || persona?.subtitle || "Python Memory Management"} 
+                    videoId={videoId} 
+                    playerRef={playerRef} 
+                  />
+                ) : (
+                  <CanvasMock toggle={() => setShowFlashcards(true)} />
+                )}
               </div>
             </div>
           )}
@@ -270,7 +347,11 @@ export default function StudioPage() {
                   </div>
                 )}
                 {roadmap.length > 0 ? (
-                  <RoadmapExplorer roadmap={roadmap} />
+                  <RoadmapExplorer 
+                    roadmap={roadmap} 
+                    activeLearningContext={activeLearningContext}
+                    onSelectActivity={handleSelectActivity}
+                  />
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
                     <Sparkles className="w-8 h-8 mb-4 opacity-50" />
@@ -294,7 +375,11 @@ export default function StudioPage() {
             </div>
           )}
           {roadmap.length > 0 ? (
-            <RoadmapExplorer roadmap={roadmap} />
+            <RoadmapExplorer 
+              roadmap={roadmap} 
+              activeLearningContext={activeLearningContext}
+              onSelectActivity={handleSelectActivity}
+            />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
               <Sparkles className="w-8 h-8 mb-4 opacity-50" />
@@ -319,12 +404,22 @@ export default function StudioPage() {
 
 // --- MOCK COMPONENTS ---
 
-function VideoPlayer({ videoId, onReady }: { videoId: string, onReady: (e: any) => void }) {
+function VideoPlayer({ 
+  videoId, 
+  videoTitle,
+  isLoading,
+  onReady 
+}: { 
+  videoId: string; 
+  videoTitle?: string;
+  isLoading?: boolean;
+  onReady: (e: any) => void;
+}) {
   const opts = {
     height: '100%',
     width: '100%',
     playerVars: {
-      autoplay: 0,
+      autoplay: 1,
       modestbranding: 1,
       rel: 0,
     },
@@ -332,6 +427,12 @@ function VideoPlayer({ videoId, onReady }: { videoId: string, onReady: (e: any) 
 
   return (
     <div className="w-full h-full relative bg-black flex flex-col group">
+      {isLoading && (
+        <div className="absolute inset-0 bg-black/75 z-20 flex flex-col items-center justify-center gap-2 text-accent-primary backdrop-blur-xs">
+          <Sparkles className="w-6 h-6 animate-pulse" />
+          <span className="text-xs font-bold">Loading YouTube Lecture...</span>
+        </div>
+      )}
       <YouTube 
         videoId={videoId} 
         opts={opts} 
