@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--bg-canvas);
+  --color-foreground: var(--fg-primary);
+  
+  --color-bg-canvas: var(--bg-canvas);
+  --color-bg-activity-bar: var(--bg-activity-bar);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-elevated: var(--bg-elevated);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-active: var(--border-active);
+
+  --color-fg-primary: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-tertiary: var(--fg-tertiary);
+  --color-fg-accent: var(--fg-accent);
+
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-emerald: var(--accent-emerald);
+  --color-accent-amber: var(--accent-amber);
+  --color-accent-rose: var(--accent-rose);
+
+  --color-border: var(--border-subtle);
+  --color-ring: var(--fg-accent);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+:root {
+  /* Flutter Theme Exact Hex Colors */
+  --bg-canvas: #0D0D0D;
+  --bg-activity-bar: #141414;
+  --bg-sidebar: #171717;
+  --bg-surface: #212121;
+  --bg-secondary: #262626;
+  --bg-elevated: #2F2F2F;
+
+  --border-subtle: #333333;
+  --border-active: #FFFFFF;
+
+  --fg-primary: #ECECEC;
+  --fg-secondary: #878787;
+  --fg-tertiary: #6B6B6B;
+  --fg-accent: #67E8F9;
+
+  --accent-primary: #FFFFFF;
+  --accent-emerald: #10B981;
+  --accent-amber: #F59E0B;
+  --accent-rose: #EF4444;
+
+  /* Shadcn standard overrides */
+  --background: var(--bg-canvas);
+  --foreground: var(--fg-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--fg-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--fg-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: var(--bg-canvas);
+  --secondary: var(--bg-secondary);
+  --secondary-foreground: var(--fg-primary);
+  --muted: var(--bg-secondary);
+  --muted-foreground: var(--fg-secondary);
+  --accent: var(--bg-elevated);
+  --accent-foreground: var(--fg-primary);
+  --destructive: var(--accent-rose);
+  --destructive-foreground: #FFFFFF;
+  --border: var(--border-subtle);
+  --input: var(--border-subtle);
+  --ring: var(--fg-accent);
+  --radius: 0.5rem;
+}
