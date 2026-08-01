@@ -8,12 +8,12 @@
   --color-background: var(--bg-canvas);
   --color-foreground: var(--fg-primary);
   
-  --color-bg-canvas: var(--bg-canvas);
-  --color-bg-activity-bar: var(--bg-activity-bar);
-  --color-bg-sidebar: var(--bg-sidebar);
-  --color-bg-surface: var(--bg-surface);
-  --color-bg-secondary: var(--bg-secondary);
-  --color-bg-elevated: var(--bg-elevated);
+  --color-canvas: var(--bg-canvas);
+  --color-activity-bar: var(--bg-activity-bar);
+  --color-sidebar: var(--bg-sidebar);
+  --color-surface: var(--bg-surface);
+  --color-secondary: var(--bg-secondary);
+  --color-elevated: var(--bg-elevated);
 
   --color-border-subtle: var(--border-subtle);
   --color-border-active: var(--border-active);
