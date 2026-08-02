@@ -91,9 +91,13 @@ async def generate_mindmap(request: MindMapRequest):
             prompt=prompt,
             model_name="gemini-3.1-flash-lite",
             system_instruction=FLOWCHART_SYSTEM_PROMPT,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={
+                "response_mime_type": "application/json",
+                "response_schema": MindMapSchema
+            }
         )
-        data = json.loads(response.text)
+        from app.utils.llm_manager import parse_json_guarded
+        data = parse_json_guarded(response.text, MindMapSchema)
         
         # Clean up mermaidGraph string if enclosed in backticks
         if data.get("mermaidGraph"):

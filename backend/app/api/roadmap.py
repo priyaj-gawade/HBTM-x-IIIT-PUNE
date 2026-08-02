@@ -42,9 +42,6 @@ Return a JSON object with this EXACT structure:
 
 @router.post("/generate", response_model=RoadmapGenerationResponse)
 async def generate_roadmap(request: RoadmapGenerationRequest):
-    if not llm_manager.keys:
-        raise HTTPException(status_code=500, detail="Gemini API Key missing")
-
     prompt = f"Generate a detailed learning roadmap for: '{request.topic}'. Target audience: {request.target_role}. Level: {request.experience_level}."
 
     try:
@@ -54,7 +51,8 @@ async def generate_roadmap(request: RoadmapGenerationRequest):
             system_instruction=ROADMAP_SYSTEM_PROMPT,
             generation_config={"response_mime_type": "application/json"}
         )
-        data = json.loads(response.text)
+        from app.utils.llm_manager import parse_json_guarded
+        data = parse_json_guarded(response.text)
         
         # Normalize if root is array or wrapped under 'roadmap'
         raw_modules = data.get("modules") or data.get("roadmap") or []

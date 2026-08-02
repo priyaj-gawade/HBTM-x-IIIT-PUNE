@@ -90,6 +90,8 @@ class RotationalLLMManager:
             config_kwargs["response_mime_type"] = mime_type
         if temp is not None:
             config_kwargs["temperature"] = temp
+        if generation_config and isinstance(generation_config, dict) and "response_schema" in generation_config:
+            config_kwargs["response_schema"] = generation_config["response_schema"]
 
         config = types.GenerateContentConfig(**config_kwargs) if config_kwargs else None
 
@@ -164,6 +166,8 @@ class RotationalLLMManager:
             config_kwargs["response_mime_type"] = mime_type
         if temp is not None:
             config_kwargs["temperature"] = temp
+        if generation_config and isinstance(generation_config, dict) and "response_schema" in generation_config:
+            config_kwargs["response_schema"] = generation_config["response_schema"]
 
         config = types.GenerateContentConfig(**config_kwargs) if config_kwargs else None
         candidate_models = [model_name] + [m for m in SUPPORTED_MODELS if m != model_name]
@@ -238,5 +242,42 @@ class RotationalLLMManager:
                     raise e
 
         raise last_exception or Exception("All Gemini API keys failed for embedding.")
+
+
+def parse_json_guarded(text: str, schema_cls: Optional[Any] = None) -> Any:
+    """
+    Robust guardrail for enforcing strict JSON parsing and schema validation.
+    Extracts raw JSON object/array boundaries and validates against a Pydantic model if provided.
+    """
+    import json
+    clean = text.strip()
+    
+    # Strip markdown wrapper if present
+    if clean.startswith("```"):
+        first_nl = clean.find("\n")
+        if first_nl != -1:
+            clean = clean[first_nl + 1:]
+        if clean.endswith("```"):
+            clean = clean[:-3]
+        clean = clean.strip()
+
+    # Extract JSON boundary ({...} or [...])
+    obj_first = clean.find("{")
+    obj_last = clean.rfind("}")
+    arr_first = clean.find("[")
+    arr_last = clean.rfind("]")
+
+    if obj_first != -1 and obj_last > obj_first and (arr_first == -1 or obj_first < arr_first):
+        clean = clean[obj_first:obj_last + 1]
+    elif arr_first != -1 and arr_last > arr_first:
+        clean = clean[arr_first:arr_last + 1]
+
+    data = json.loads(clean)
+    if schema_cls is not None:
+        if hasattr(schema_cls, "model_validate"):
+            return schema_cls.model_validate(data).model_dump()
+        elif hasattr(schema_cls, "parse_obj"):
+            return schema_cls.parse_obj(data).dict()
+    return data
 
 llm_manager = RotationalLLMManager()

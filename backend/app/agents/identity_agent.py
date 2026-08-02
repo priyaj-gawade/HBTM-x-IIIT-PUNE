@@ -56,7 +56,8 @@ class IdentityAgent:
                 system_instruction=IDENTITY_SYSTEM_PROMPT,
                 generation_config=self.generation_config,
             )
-            blueprint = json.loads(response.text)
+            from app.utils.llm_manager import parse_json_guarded
+            blueprint = parse_json_guarded(response.text)
 
             logger.info("Identity Agent generated Growth Blueprint successfully")
             return blueprint

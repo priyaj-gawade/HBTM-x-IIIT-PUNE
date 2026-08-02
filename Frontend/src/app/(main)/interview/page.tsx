@@ -155,15 +155,6 @@ export default function InterviewPage() {
       
       if (isComplete && !isAskingPlan) {
         setIsAskingPlan(true);
-        setMessages((prev) => [
-          ...prev, 
-          {
-            id: `ai-plan-${Date.now()}`,
-            sender: "AI",
-            text: "I have gathered enough insight to craft your personalized blueprint! Ready to generate your workspace?",
-            options: ["Yes, proceed ➔", "Let's refine more"]
-          }
-        ]);
       }
 
     } catch (err) {

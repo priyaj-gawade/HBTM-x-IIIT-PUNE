@@ -8,7 +8,7 @@ class GraphNode(BaseModel):
     label: str = Field(..., description="Short title label for the node")
     description: Optional[str] = Field("", description="Concept summary or milestone description")
     tier: int = Field(0, description="Vertical sequencing tier (0, 1, 2, ...)")
-    estimatedHours: Optional[int] = Field(2, description="Estimated study time in hours")
+    estimatedHours: Optional[float] = Field(2.0, description="Estimated study time in hours")
     status: Optional[str] = Field("not_started", description="Completion status: not_started, in_progress, completed")
     activityType: Optional[str] = Field("VIDEO_LESSON", description="Target activity type: VIDEO_LESSON, QUIZ, CODE_CHALLENGE")
 

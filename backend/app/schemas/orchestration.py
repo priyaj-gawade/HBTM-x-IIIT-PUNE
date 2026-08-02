@@ -76,13 +76,24 @@ class BlueprintNode(BaseModel):
     selectedFormat: Optional[str] = "Interactive Sandbox"
     isHandsOnFocus: bool = True
 
+class MetricDetails(BaseModel):
+    score: int = Field(default=80, description="Score from 1 to 100")
+    meaning: str = Field(default="Baseline score", description="Short explanation of what this score means for the learner")
+
+class PersonaMetrics(BaseModel):
+    analytical: MetricDetails = Field(default_factory=MetricDetails)
+    practical: MetricDetails = Field(default_factory=MetricDetails)
+    consistency: MetricDetails = Field(default_factory=MetricDetails)
+    focus: MetricDetails = Field(default_factory=MetricDetails)
+    time_factor: MetricDetails = Field(default_factory=MetricDetails)
+
 class PersonaProfileSchema(BaseModel):
     renderMode: str = "default"
     title: str = "Learner"
     subtitle: str = "Personalized learning path"
     summary: str = "Tailored study blueprint."
     traits: List[str] = Field(default_factory=list)
-    metrics: Dict[str, Any] = Field(default_factory=dict)
+    metrics: PersonaMetrics
     blueprintNodes: List[BlueprintNode] = Field(default_factory=list)
 
 class InterviewRequest(BaseModel):

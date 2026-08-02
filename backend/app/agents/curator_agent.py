@@ -54,7 +54,8 @@ class CuratorAgent:
                 system_instruction=CURATOR_SYSTEM_PROMPT,
                 generation_config=self.generation_config,
             )
-            curation = json.loads(response.text)
+            from app.utils.llm_manager import parse_json_guarded
+            curation = parse_json_guarded(response.text)
 
             logger.info("Curator Agent generated resources successfully")
             return curation

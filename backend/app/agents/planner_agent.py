@@ -60,7 +60,8 @@ class PlannerAgent:
                 system_instruction=PLANNER_SYSTEM_PROMPT,
                 generation_config=self.generation_config,
             )
-            plan = json.loads(response.text)
+            from app.utils.llm_manager import parse_json_guarded
+            plan = parse_json_guarded(response.text)
             plan["growth_score"] = calculate_growth_score(streak, 0)
 
             logger.info("Planner Agent generated daily plan successfully")

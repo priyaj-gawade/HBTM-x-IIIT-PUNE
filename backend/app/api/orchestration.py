@@ -32,17 +32,34 @@ async def generate_flashcards(request: FlashcardGenerationRequest):
 
     prompt = f"""
     Create {request.count} educational flashcards about "{request.topic}".
-    Each flashcard needs a 'front' (the question or term) and a 'back' (the answer or definition).{transcript_context}
-    Output as JSON.
+    Each flashcard needs an 'id' (e.g. f1, f2), a 'front' (the question or term) and a 'back' (the answer or definition).{transcript_context}
+    
+    Return MUST be a JSON object with format:
+    {{
+        "flashcards": [
+            {{"id": "f1", "front": "Question 1?", "back": "Answer 1"}}
+        ]
+    }}
     """
     
     try:
         response = await llm_manager.generate_content_async(
             prompt=prompt,
             model_name="gemini-3.1-flash-lite",
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={
+                "response_mime_type": "application/json",
+                "response_schema": FlashcardGenerationResponse
+            }
         )
-        return json.loads(response.text)
+        from app.utils.llm_manager import parse_json_guarded
+        data = parse_json_guarded(response.text, FlashcardGenerationResponse)
+        if isinstance(data, list):
+            data = {"flashcards": data}
+        if isinstance(data, dict) and "flashcards" in data and isinstance(data["flashcards"], list):
+            for idx, item in enumerate(data["flashcards"]):
+                if isinstance(item, dict) and not item.get("id"):
+                    item["id"] = f"f_{idx+1}"
+        return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -74,9 +91,13 @@ async def generate_quiz(request: QuizGenerationRequest):
         response = await llm_manager.generate_content_async(
             prompt=prompt,
             model_name="gemini-3.1-flash-lite",
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={
+                "response_mime_type": "application/json",
+                "response_schema": QuizGenerationResponse
+            }
         )
-        return json.loads(response.text)
+        from app.utils.llm_manager import parse_json_guarded
+        return parse_json_guarded(response.text, QuizGenerationResponse)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -135,9 +156,13 @@ async def complete_interview(persona: InferredPersona):
             prompt=f"Generate a customized persona profile for a learner described as follows: {context}",
             model_name="gemini-3.1-flash-lite",
             system_instruction=PERSONA_SYSTEM_PROMPT,
-            generation_config={"response_mime_type": "application/json"},
+            generation_config={
+                "response_mime_type": "application/json",
+                "response_schema": PersonaProfileSchema
+            },
         )
-        data = json.loads(response.text)
+        from app.utils.llm_manager import parse_json_guarded
+        data = parse_json_guarded(response.text, PersonaProfileSchema)
 
         # Normalize blueprint nodes cleanly whether returned as dicts or strings
         raw_nodes = data.get("blueprintNodes") or []
@@ -160,24 +185,18 @@ async def complete_interview(persona: InferredPersona):
                     "topics": node.get("topics") or []
                 })
 
-        # Ensure default metrics structure if any keys missing
-        metrics = data.get("metrics") or {}
-        
-        def safe_metric(key: str, default: int) -> int:
-            val = metrics.get(key, default)
-            try:
-                val = float(val)
-                return int(val * 100) if val <= 1.0 else int(val)
-            except (ValueError, TypeError):
-                return default
-
-        default_metrics = {
-            "Analytical": safe_metric("analytical", 85),
-            "Practical": safe_metric("practical", 80),
-            "Consistency": safe_metric("consistency", 75),
-            "Focus": safe_metric("focus", 70),
-            "Time Factor": safe_metric("time_factor", 75),
+        # Pass through the AI-generated metrics (which conform to PersonaMetrics)
+        # If missing, provide fallback matching the MetricDetails schema
+        default_meaning = "Baseline score"
+        fallback_metrics = {
+            "analytical": {"score": 85, "meaning": default_meaning},
+            "practical": {"score": 80, "meaning": default_meaning},
+            "consistency": {"score": 75, "meaning": default_meaning},
+            "focus": {"score": 70, "meaning": default_meaning},
+            "time_factor": {"score": 75, "meaning": default_meaning}
         }
+        
+        final_metrics = data.get("metrics") or fallback_metrics
 
         return {
             "renderMode": data.get("renderMode") or "default",
@@ -185,7 +204,7 @@ async def complete_interview(persona: InferredPersona):
             "subtitle": data.get("subtitle") or f"Mastery of {persona.subject or 'Core Concepts'}",
             "summary": data.get("summary") or f"Targeted learning path focusing on {persona.subject or 'core concepts'}.",
             "traits": data.get("traits") or ["Analytical", "Motivated"],
-            "metrics": default_metrics,
+            "metrics": final_metrics,
             "blueprintNodes": normalized_nodes
         }
     except Exception as e:

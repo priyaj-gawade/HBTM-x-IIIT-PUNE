@@ -29,6 +29,7 @@ import {
   Play
 } from "lucide-react";
 import { RoadmapExplorer } from "./roadmap-explorer";
+import { InteractiveCanvas } from "@/components/canvas/interactive-canvas";
 import { ApiClient } from "@/lib/api-client";
 import { MOCK_PYTHON_ROADMAP, MOCK_FLASHCARDS } from "@/lib/mock-data";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -378,12 +379,15 @@ export default function StudioPage() {
                 {showFlashcards ? (
                   <FlashcardDeckMock 
                     toggle={() => setShowFlashcards(false)} 
-                    topic={activeLearningContext || persona?.subtitle || "Python Memory Management"} 
+                    topic={activeLearningContext || persona?.subtitle || persona?.title || persona?.subject || "Software Engineering"} 
                     videoId={videoId} 
                     playerRef={playerRef} 
                   />
                 ) : (
-                  <CanvasMock toggle={() => setShowFlashcards(true)} />
+                  <CanvasMock 
+                    toggle={() => setShowFlashcards(true)} 
+                    topic={activeLearningContext || persona?.subtitle || persona?.title || persona?.subject || "Software Engineering"} 
+                  />
                 )}
               </div>
             </div>
@@ -417,12 +421,15 @@ export default function StudioPage() {
                 {showFlashcards ? (
                   <FlashcardDeckMock 
                     toggle={() => setShowFlashcards(false)} 
-                    topic={activeLearningContext || persona?.subtitle || "Python Memory Management"} 
+                    topic={activeLearningContext || persona?.subtitle || persona?.title || persona?.subject || "Software Engineering"} 
                     videoId={videoId} 
                     playerRef={playerRef} 
                   />
                 ) : (
-                  <CanvasMock toggle={() => setShowFlashcards(true)} />
+                  <CanvasMock 
+                    toggle={() => setShowFlashcards(true)} 
+                    topic={activeLearningContext || persona?.subtitle || persona?.title || persona?.subject || "Software Engineering"} 
+                  />
                 )}
               </div>
             </div>
@@ -584,7 +591,7 @@ export default function StudioPage() {
                       <RadarChart cx="50%" cy="50%" outerRadius="80%" data={
                         Object.entries(persona.metrics).map(([key, val]: [string, any]) => ({
                           subject: key.replace(/_/g, ' ').toUpperCase(),
-                          value: Number(val),
+                          value: Number(val?.score ?? val),
                           fullMark: 100
                         }))
                       }>
@@ -605,96 +612,70 @@ export default function StudioPage() {
                 {/* Card 2: Horizontal Percentage Lines */}
                 <div className="bg-[#141414] p-6 rounded-xl border border-white/5 shadow-inner flex flex-col gap-4">
                   <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Detailed Breakdown</h3>
-                  {Object.entries(persona.metrics).map(([key, val]: [string, any], idx) => (
-                    <div key={idx} className="flex flex-col gap-1.5">
+                  {Object.entries(persona.metrics).map(([key, val]: [string, any], idx) => {
+                    const score = val?.score ?? val;
+                    const meaning = val?.meaning ?? "";
+                    return (
+                    <div key={idx} className="flex flex-col gap-1.5 mb-2">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-semibold text-foreground">{key.replace(/_/g, ' ').toUpperCase()}</span>
-                        <span className="font-bold text-cyan-400">{String(val)}%</span>
+                        <span className="font-bold text-cyan-400">{String(score)}%</span>
                       </div>
+                      {meaning && (
+                        <p className="text-[10px] text-muted-foreground italic mb-1">{meaning}</p>
+                      )}
                       <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-cyan-400 rounded-full transition-all duration-1000 ease-out" 
-                          style={{ width: `${Number(val)}%` }} 
+                          style={{ width: `${Number(score)}%` }} 
                         />
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
 
               </div>
             )}
           </div>
         </div>
-      ) : activeWorkspaceTab === "mind_map" ? (
-        <div className="flex-1 overflow-y-auto p-6 md:p-10 max-w-5xl mx-auto w-full">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <Share2 className="w-5 h-5 text-cyan-400" />
-                Knowledge Graph & Blueprint Nodes
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                Interactive conceptual nodes generated for your custom track. Click any node to load its lecture into the Learning Lab.
-              </p>
-            </div>
-            <button 
-              onClick={() => setActiveWorkspaceTab("lab")}
-              className="px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-bold transition"
-            >
-              Open Learning Lab ➔
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(persona?.blueprintNodes || (roadmap.length > 0 ? roadmap.flatMap(m => m.sections || []) : [
-              { title: "Core Fundamentals", description: "Variables, syntax structures, and semantic primitives." },
-              { title: "Object-Oriented Design", description: "Classes, abstraction, polymorphism, and composition." },
-              { title: "Memory Architecture", description: "Pointers, reference counts, and garbage collection models." },
-              { title: "Async Concurrency", description: "Event loops, coroutines, thread pools, and race conditions." },
-              { title: "Data Pipelines", description: "Stream processing, vectorized queries, and persistence layers." },
-              { title: "Applied Systems Design", description: "Distributed caching, RPC architectures, and latency optimization." }
-            ])).map((node: any, idx: number) => {
-              const nodeTitle = typeof node === "string" ? node : (node.title || node.name || `Concept #${idx+1}`);
-              const nodeDesc = node.description || node.summary || "Interactive curriculum component with targeted multimedia lectures.";
-              const isNodeActive = activeLearningContext.toLowerCase().includes(nodeTitle.toLowerCase());
-
-              return (
-                <div 
-                  key={idx}
-                  onClick={() => handleSelectActivity(nodeTitle, "Watch Video")}
-                  className={cn(
-                    "p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none",
-                    isNodeActive 
-                      ? "bg-[#1F2937]/50 border-cyan-400 shadow-[0_0_15px_rgba(56,189,248,0.2)]" 
-                      : "bg-[#181818] border-border/60 hover:border-cyan-500/40 hover:bg-[#202020]"
-                  )}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-muted-foreground border border-white/5">
-                        Node #{idx + 1}
-                      </span>
-                      <PlayCircle className={cn("w-4 h-4 transition-transform group-hover:scale-110", isNodeActive ? "text-cyan-400" : "text-muted-foreground group-hover:text-cyan-400")} />
-                    </div>
-                    <h3 className={cn("text-sm font-bold transition-colors", isNodeActive ? "text-cyan-300" : "text-foreground group-hover:text-white")}>
-                      {nodeTitle}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                      {nodeDesc}
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
-                    <span className="text-cyan-400 font-semibold group-hover:underline">Launch Lecture</span>
-                    <span className="text-muted-foreground">→</span>
-                  </div>
-                </div>
-              );
-            })}
+      ) : activeWorkspaceTab === "flashcard_canvas" ? (
+        <div className="flex-1 h-full overflow-hidden p-4">
+          <div className="h-full rounded-xl border border-border overflow-hidden">
+            <FlashcardDeckMock 
+              toggle={() => setActiveWorkspaceTab("mind_map")} 
+              topic={activeLearningContext || persona?.subtitle || persona?.title || persona?.subject || "Software Engineering"} 
+              videoId={videoId} 
+              playerRef={playerRef} 
+            />
           </div>
         </div>
+      ) : activeWorkspaceTab === "canvas" ? (
+        <InteractiveCanvas 
+          toggle={() => setActiveWorkspaceTab("video")} 
+          topic={activeLearningContext || persona?.subtitle || persona?.title || persona?.subject || "Software Engineering"} 
+          videoId={videoId} 
+          playerRef={playerRef} 
+        />
+      ) : activeWorkspaceTab === "mind_map" ? (
+        <div className="flex-1 h-full overflow-hidden p-4">
+          <div className="h-full rounded-xl border border-border overflow-hidden">
+            <CanvasMock 
+              toggle={() => setActiveWorkspaceTab("flashcard_canvas")} 
+              topic={activeLearningContext || persona?.subtitle || persona?.title || persona?.subject || "Software Engineering"} 
+            />
+          </div>
+        </div>
+      ) : activeWorkspaceTab === "roadmap" ? (
+        <div className="flex-1 h-full overflow-y-auto p-6 max-w-5xl mx-auto w-full">
+          <RoadmapExplorer 
+            roadmap={roadmap} 
+            onSelectActivity={(topicTitle, activityType) => handleSelectActivity(topicTitle, activityType)} 
+          />
+        </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          <p className="text-sm font-bold">This tab ({activeWorkspaceTab}) is active.</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
+          <Layers className="w-10 h-10 mb-3 opacity-40 text-accent-primary" />
+          <p className="text-sm font-semibold">Select a tab from the top bar to inspect curriculum components.</p>
         </div>
       )}
     </div>
@@ -760,27 +741,217 @@ function VideoPlayer({
   );
 }
 
-function CanvasMock({ toggle }: { toggle: () => void }) {
+function CanvasMock({ toggle, topic }: { toggle: () => void; topic?: string }) {
+  const [mindmap, setMindmap] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeNode, setActiveNode] = useState<any>(null);
+  const [nodePositions, setNodePositions] = useState<Record<string, {cx: number, cy: number}>>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updatePositions = () => {
+      if (!containerRef.current || !mindmap?.nodes) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newPos: Record<string, {cx: number, cy: number}> = {};
+      mindmap.nodes.forEach((n: any) => {
+        const el = document.getElementById(`node-${n.id}`);
+        if (el) {
+          const elRect = el.getBoundingClientRect();
+          newPos[n.id] = {
+            cx: elRect.left - rect.left + elRect.width / 2 + containerRef.current!.scrollLeft,
+            cy: elRect.top - rect.top + elRect.height / 2 + containerRef.current!.scrollTop,
+          };
+        }
+      });
+      setNodePositions(newPos);
+    };
+    
+    // Update after rendering
+    setTimeout(updatePositions, 100);
+    window.addEventListener('resize', updatePositions);
+    return () => window.removeEventListener('resize', updatePositions);
+  }, [mindmap, activeNode]);
+
+  useEffect(() => {
+    if (!topic) return;
+    const fetchMindmap = async () => {
+      setIsLoading(true);
+      try {
+        const res = await ApiClient.post('/mindmap/generate', { subject: topic });
+        if (res && res.nodes) {
+          setMindmap(res);
+        }
+      } catch (err) {
+        console.error("Failed to generate mindmap:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchMindmap();
+  }, [topic]);
+
+  // Group nodes by tier for structured DAG flowchart layout
+  const nodesByTier: Record<number, any[]> = {};
+  if (mindmap?.nodes) {
+    mindmap.nodes.forEach((n: any) => {
+      const t = n.tier ?? 0;
+      if (!nodesByTier[t]) nodesByTier[t] = [];
+      nodesByTier[t].push(n);
+    });
+  }
+
+  const tiers = Object.keys(nodesByTier).map(Number).sort((a, b) => a - b);
+
   return (
-    <div className="w-full h-full bg-canvas relative" style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-      <button onClick={toggle} className="absolute top-4 right-4 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs font-bold hover:bg-white/5 flex items-center gap-2">
-        <FoldVertical className="w-3.5 h-3.5" /> View Flashcards
-      </button>
-      
-      {/* Mock Nodes */}
-      <div className="absolute top-20 left-20 bg-surface border-2 border-accent-rose rounded-xl p-4 w-48 shadow-lg">
-        <h4 className="font-bold text-sm text-foreground">Singly Linked List</h4>
-        <p className="text-xs text-muted-foreground mt-1">Each node points to the next.</p>
+    <div className="w-full h-full bg-canvas relative flex flex-col overflow-hidden" style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
+        <button onClick={toggle} className="px-3 py-1.5 bg-surface border border-border rounded-lg text-xs font-bold hover:bg-white/5 flex items-center gap-2 shadow">
+          <FoldVertical className="w-3.5 h-3.5" /> View Flashcards
+        </button>
       </div>
-      <div className="absolute top-48 left-64 bg-surface border-2 border-accent-emerald rounded-xl p-4 w-48 shadow-lg">
-        <h4 className="font-bold text-sm text-foreground">Doubly Linked List</h4>
-        <p className="text-xs text-muted-foreground mt-1">Nodes point to both next and prev.</p>
-      </div>
-      
-      {/* Mock line connecting them */}
-      <svg className="absolute inset-0 pointer-events-none w-full h-full">
-        <path d="M 272 138 C 300 138, 300 214, 336 214" fill="transparent" stroke="#333" strokeWidth="2" />
-      </svg>
+
+      {isLoading ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-accent-primary">
+          <Sparkles className="w-8 h-8 animate-pulse" />
+          <span className="text-sm font-bold">Generating Mindmap DAG for {topic}...</span>
+        </div>
+      ) : !mindmap || !mindmap.nodes || mindmap.nodes.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
+          <Waypoints className="w-10 h-10 mb-3 opacity-50" />
+          <p className="text-sm">Select a topic or interview concept to render its interactive mindmap graph.</p>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto p-6 relative flex" ref={containerRef}>
+          <div className="flex-1 relative min-w-max">
+            {/* SVG Connections Layer */}
+            {mindmap.edges && mindmap.edges.length > 0 && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ minWidth: '100%', minHeight: '100%' }}>
+                {mindmap.edges.map((edge: any, idx: number) => {
+                  const sourcePos = nodePositions[edge.source];
+                  const targetPos = nodePositions[edge.target];
+                  if (!sourcePos || !targetPos) return null;
+                  
+                  // Curved path
+                  const mx = (sourcePos.cx + targetPos.cx) / 2;
+                  const path = `M ${sourcePos.cx} ${sourcePos.cy} C ${mx} ${sourcePos.cy}, ${mx} ${targetPos.cy}, ${targetPos.cx} ${targetPos.cy}`;
+                  
+                  return (
+                    <path
+                      key={idx}
+                      d={path}
+                      fill="none"
+                      stroke={activeNode && (activeNode.id === edge.source || activeNode.id === edge.target) ? "#ffd43b" : "rgba(255,255,255,0.15)"}
+                      strokeWidth={activeNode && (activeNode.id === edge.source || activeNode.id === edge.target) ? 3 : 2}
+                      strokeDasharray={edge.isDashed ? "5,5" : "0"}
+                      className="transition-all duration-300"
+                    />
+                  );
+                })}
+              </svg>
+            )}
+
+            <div className="mb-4 relative z-10">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Waypoints className="w-4 h-4 text-accent-primary" />
+                {mindmap.subjectTitle || topic}
+              </h3>
+              <p className="text-xs text-muted-foreground">Interactive Knowledge Graph DAG • {mindmap.nodes.length} Concept Nodes</p>
+            </div>
+
+            <div className="flex flex-row gap-12 min-w-max items-start py-4 relative z-10">
+              {tiers.map((tierNum) => (
+                <div key={tierNum} className="flex flex-col gap-4 w-56 shrink-0">
+                <div className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground border-b border-border/40 pb-1">
+                  Tier {tierNum}
+                </div>
+                {nodesByTier[tierNum].map((node: any) => {
+                  const isSelected = activeNode?.id === node.id;
+                  const typeColors: Record<string, string> = {
+                    section: "border-accent-emerald bg-accent-emerald/10 text-accent-emerald",
+                    topic: "border-accent-primary bg-accent-primary/10 text-accent-primary",
+                    subtopic: "border-border bg-surface text-foreground",
+                    quiz: "border-accent-rose bg-accent-rose/10 text-accent-rose",
+                    project: "border-amber-500 bg-amber-500/10 text-amber-500"
+                  };
+                  const badgeClass = typeColors[node.type] || typeColors.topic;
+
+                  return (
+                    <div
+                      key={node.id}
+                      id={`node-${node.id}`}
+                      onClick={() => setActiveNode(node)}
+                      className={cn(
+                        "p-3.5 rounded-xl border-2 bg-surface cursor-pointer shadow-md transition-all hover:scale-[1.02]",
+                        isSelected ? "border-accent-primary ring-2 ring-accent-primary/20" : "border-border/70 hover:border-border"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border", badgeClass)}>
+                          {node.type}
+                        </span>
+                        {node.estimatedHours && (
+                          <span className="text-[10px] text-muted-foreground font-mono">{node.estimatedHours}h</span>
+                        )}
+                      </div>
+                      <h4 className="font-bold text-xs text-foreground line-clamp-2">{node.label}</h4>
+                      {node.description && (
+                        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{node.description}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            </div>
+          </div>
+          
+          {/* Active Node Details Panel */}
+          {activeNode && (
+            <div className="w-80 ml-6 shrink-0 bg-surface border border-border rounded-xl shadow-lg p-5 flex flex-col sticky top-0 h-max">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="font-bold text-lg text-foreground">{activeNode.label}</h3>
+                <button onClick={() => setActiveNode(null)} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border border-accent-primary bg-accent-primary/10 text-accent-primary">
+                  {activeNode.type}
+                </span>
+                {activeNode.estimatedHours && (
+                  <span className="text-xs text-muted-foreground font-mono bg-canvas px-2 py-0.5 rounded border border-border">
+                    {activeNode.estimatedHours}h
+                  </span>
+                )}
+              </div>
+
+              {activeNode.description && (
+                <div className="mb-4">
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Description</h4>
+                  <p className="text-sm text-foreground leading-relaxed">{activeNode.description}</p>
+                </div>
+              )}
+              
+              <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-border">
+                {activeNode.activityType && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Activity:</span>
+                    <span className="font-medium text-foreground">{activeNode.activityType}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="font-medium text-emerald-400">Ready</span>
+                </div>
+                <button className="w-full mt-4 bg-accent-primary text-black font-bold py-2 rounded-lg hover:opacity-90 transition-opacity">
+                  Start Learning
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -789,11 +960,13 @@ function FlashcardDeckMock({ toggle, topic, videoId, playerRef }: { toggle: () =
   const [flashcards, setFlashcards] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
 
   React.useEffect(() => {
     if (!topic) return;
     const fetchFlashcards = async () => {
       setIsGenerating(true);
+      setIsFlipped(false);
       try {
         let currentTime = undefined;
         if (playerRef) {
@@ -804,12 +977,13 @@ function FlashcardDeckMock({ toggle, topic, videoId, playerRef }: { toggle: () =
         
         const response = await ApiClient.post('/orchestration/flashcards', {
           topic: topic,
-          count: 3,
+          count: 5,
           video_id: videoId,
           video_timestamp: currentTime ? Math.round(currentTime) : undefined
         });
-        if (response.flashcards) {
+        if (response && response.flashcards && Array.isArray(response.flashcards)) {
           setFlashcards(response.flashcards);
+          setCurrentIndex(0);
         }
       } catch (err) {
         console.error("Failed to fetch flashcards:", err);
@@ -824,12 +998,19 @@ function FlashcardDeckMock({ toggle, topic, videoId, playerRef }: { toggle: () =
 
   const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setIsFlipped(false);
     setCurrentIndex((prev) => (prev + 1) % flashcards.length);
+  };
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsFlipped(false);
+    setCurrentIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length);
   };
 
   return (
     <div className="w-full h-full bg-surface relative flex flex-col items-center justify-center p-8">
-      <button onClick={toggle} className="absolute top-4 right-4 px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs font-bold hover:bg-white/5 flex items-center gap-2 z-20">
+      <button onClick={toggle} className="absolute top-4 right-4 px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs font-bold hover:bg-white/5 flex items-center gap-2 z-20 shadow">
         <LayoutGrid className="w-3.5 h-3.5" /> View Mindmap
       </button>
 
@@ -841,30 +1022,54 @@ function FlashcardDeckMock({ toggle, topic, videoId, playerRef }: { toggle: () =
       ) : flashcards.length === 0 ? (
         <div className="flex flex-col items-center text-muted-foreground max-w-sm text-center">
           <Sparkles className="w-8 h-8 mb-4 opacity-50" />
-          <p className="text-sm">Complete your Atlas interview to generate personalized flashcards for this topic.</p>
+          <p className="text-sm">No flashcards generated yet for "{topic}".</p>
         </div>
       ) : (
-        <div className="relative w-full max-w-[400px] h-[250px] group">
-          {/* Stack effect */}
-          <div className="absolute inset-0 translate-y-4 scale-90 bg-elevated rounded-2xl border border-border/50" />
-          <div className="absolute inset-0 translate-y-2 scale-95 bg-elevated rounded-2xl border border-border" />
+        <div className="flex flex-col items-center gap-4 w-full max-w-[420px]">
+          <div className="text-xs font-mono text-muted-foreground">
+            Card {currentIndex + 1} of {flashcards.length} • Click card to flip
+          </div>
+
           <div 
-            className="absolute inset-0 bg-canvas rounded-2xl border-2 border-border shadow-xl flex flex-col p-6 items-center justify-center text-center cursor-pointer hover:border-accent-primary transition-colors"
+            onClick={() => setIsFlipped(!isFlipped)}
+            className="relative w-full h-[240px] cursor-pointer group"
           >
-            <span className="text-accent-primary text-xs font-bold tracking-widest uppercase mb-4">Front</span>
-            <h2 className="text-xl font-bold text-foreground">{currentCard?.front}</h2>
+            {/* Stack layers background */}
+            <div className="absolute inset-0 translate-y-3 scale-95 bg-elevated rounded-2xl border border-border/50 shadow" />
+            <div className="absolute inset-0 translate-y-1.5 scale-[0.98] bg-elevated rounded-2xl border border-border shadow" />
             
-            {/* The back of the card on hover */}
-            <div className="absolute inset-0 bg-canvas rounded-2xl p-6 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-center transition-opacity duration-300">
-               <span className="text-accent-primary text-xs font-bold tracking-widest uppercase mb-4">Back</span>
-               <h2 className="text-sm font-medium text-muted-foreground">{currentCard?.back}</h2>
+            {/* Card Content */}
+            <div 
+              className={cn(
+                "absolute inset-0 bg-canvas rounded-2xl border-2 border-border shadow-xl flex flex-col p-6 items-center justify-center text-center transition-all duration-300 hover:border-accent-primary",
+                isFlipped ? "bg-accent-primary/5 border-accent-primary" : ""
+              )}
+            >
+              <span className="text-accent-primary text-[10px] font-bold tracking-widest uppercase mb-3 px-2 py-0.5 bg-accent-primary/10 rounded-md">
+                {isFlipped ? "Answer (Back)" : "Question (Front)"}
+              </span>
+              <h2 className="text-base font-semibold text-foreground px-4 leading-relaxed">
+                {isFlipped ? currentCard?.back : currentCard?.front}
+              </h2>
+              <span className="text-[10px] text-muted-foreground mt-4 opacity-70">
+                (Click card to reveal {isFlipped ? "front" : "back"})
+              </span>
             </div>
-            
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center gap-3 mt-2 z-30">
+            <button 
+              onClick={handlePrev}
+              className="px-4 py-2 bg-canvas border border-border rounded-xl text-xs font-bold hover:bg-white/5 transition-colors"
+            >
+              Previous
+            </button>
             <button 
               onClick={handleNext}
-              className="absolute bottom-4 right-4 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs font-bold hover:bg-white/5 z-30"
+              className="px-4 py-2 bg-accent-primary text-black rounded-xl text-xs font-bold hover:opacity-90 transition-opacity"
             >
-              Next
+              Next Card
             </button>
           </div>
         </div>

@@ -48,11 +48,11 @@ JSON Schema:
   "summary": "1-2 sentence detailed summary of their cognitive strengths and recommended pedagogical velocity",
   "traits": ["Trait 1", "Trait 2", "Trait 3"],
   "metrics": {
-    "analytical": 85,
-    "practical": 90,
-    "consistency": 75,
-    "focus": 80,
-    "time_factor": 70
+    "analytical": { "score": 85, "meaning": "Strong logic-based problem solving." },
+    "practical": { "score": 90, "meaning": "Prefers hands-on application over theory." },
+    "consistency": { "score": 75, "meaning": "Steady pacing with room for deeper focus." },
+    "focus": { "score": 80, "meaning": "Maintains attention on core concepts." },
+    "time_factor": { "score": 70, "meaning": "Requires efficient, concentrated study sessions." }
   },
   "blueprintNodes": [
     {
@@ -66,7 +66,7 @@ JSON Schema:
 }
 
 RULES:
-- "metrics": Evaluate their analytical thinking, practical application, consistency, focus, and time factor dynamically from 1 to 100 based on the inferred persona.
+- "metrics": Evaluate their analytical thinking, practical application, consistency, focus, and time factor dynamically from 1 to 100 based on the inferred persona. For each, provide a 'score' and a short 'meaning' string.
 - "blueprintNodes": Provide structured milestone phases adapted to the user's requested Time Commitment (e.g., if a 12-week course is requested, provide 12 weekly phases) tailored specifically to their exact subject.
 - Return ONLY the raw JSON object. No markdown formatting.
 """
